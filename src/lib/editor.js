@@ -2,6 +2,10 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
+import Table from '@tiptap/extension-table';
+import TableRow from '@tiptap/extension-table-row';
+import TableHeader from '@tiptap/extension-table-header';
+import TableCell from '@tiptap/extension-table-cell';
 import { Extension } from '@tiptap/core';
 
 export const EMPTY_DOC = { type: 'doc', content: [{ type: 'paragraph' }] };
@@ -24,6 +28,13 @@ export function buildExtensions({ placeholder } = {}) {
     }),
     TaskList,
     TaskItem.configure({ nested: true }),
+    Table.configure({
+      resizable: true,
+      HTMLAttributes: { class: 'prose-table' },
+    }),
+    TableRow,
+    TableHeader,
+    TableCell,
     StrikeShortcut,
     ...(placeholder ? [Placeholder.configure({ placeholder })] : []),
   ];

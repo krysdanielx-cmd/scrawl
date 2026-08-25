@@ -575,6 +575,61 @@ button:disabled { cursor: not-allowed; }
 .prose code { padding: .12em .38em; border-radius: 6px; background: var(--paper-2); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .875em; }
 .prose pre { margin: 1.2em 0; padding: 1em 1.1em; border-radius: 14px; background: #1d2430; color: #e7ecf5; overflow-x: auto; }
 .prose pre code { padding: 0; background: none; color: inherit; font-size: .8125rem; }
+
+/* Tables - Notion-style */
+.prose table, .prose-table {
+  border-collapse: collapse;
+  margin: 1.5em 0;
+  width: 100%;
+  table-layout: auto;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+.prose th, .prose td {
+  border: 1px solid var(--line);
+  padding: 10px 14px;
+  text-align: left;
+  vertical-align: top;
+  position: relative;
+  min-width: 80px;
+}
+.prose th {
+  background: var(--cobalt-soft);
+  color: var(--cobalt-deep);
+  font-weight: 600;
+  font-size: .875em;
+}
+.prose td { background: var(--surface); }
+.prose tr:hover td { background: var(--paper-2); }
+.prose th p, .prose td p { margin: 0; }
+
+/* Table resize handle */
+.prose .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--cobalt);
+  cursor: col-resize;
+  opacity: 0;
+  transition: opacity .15s;
+}
+.prose th:hover .column-resize-handle,
+.prose td:hover .column-resize-handle { opacity: 1; }
+
+/* Selected cells */
+.prose .selectedCell { background: var(--cobalt-pale) !important; }
+
+/* Dark mode table adjustments */
+[data-theme="dark"] .prose th { background: var(--cobalt-soft); color: var(--cobalt); }
+[data-theme="dark"] .prose td { background: var(--surface); }
+[data-theme="dark"] .prose tr:hover td { background: var(--paper-2); }
+
+[data-theme="ambient"] .prose th { background: var(--cobalt-soft); color: var(--cobalt); }
+[data-theme="ambient"] .prose td { background: var(--surface); }
+[data-theme="ambient"] .prose tr:hover td { background: var(--paper-2); }
 .prose hr { margin: 2em 0; border: 0; border-top: 1px solid var(--line-2); }
 .prose a { color: var(--cobalt); text-underline-offset: 3px; }
 .prose ul[data-type='taskList'] { list-style: none; padding-left: 0; }

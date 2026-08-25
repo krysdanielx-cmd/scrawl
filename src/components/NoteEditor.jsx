@@ -5,7 +5,7 @@ import { buildExtensions, safeContent } from '../lib/editor.js';
 import { fullDate } from '../lib/format.js';
 import {
   IconArchive, IconBack, IconBullets, IconChecklist, IconCode, IconCopy,
-  IconNumbers, IconPin, IconQuote, IconRedo, IconShare, IconStrike, IconTrash, IconUndo,
+  IconNumbers, IconPin, IconQuote, IconRedo, IconShare, IconStrike, IconTable, IconTrash, IconUndo,
 } from '../lib/icons.jsx';
 
 const AUTOSAVE_MS = 500;
@@ -213,6 +213,7 @@ export default function NoteEditor({ note, folders, onMetaChange, onArchived, on
         <span className="divider" />
         <button className="tool" type="button" onMouseDown={keepFocus} data-on={on('blockquote')} onClick={run((c) => c.toggleBlockquote())} aria-label="Quote" title="Quote"><IconQuote /></button>
         <button className="tool" type="button" onMouseDown={keepFocus} data-on={on('codeBlock')} onClick={run((c) => c.toggleCodeBlock())} aria-label="Code block" title="Code block"><IconCode /></button>
+        <button className="tool" type="button" onMouseDown={keepFocus} onClick={run((c) => c.insertTable({ rows: 3, cols: 3, withHeaderRow: true }))} aria-label="Insert table" title="Insert table"><IconTable /></button>
         <span className="divider" />
         <button className="tool" type="button" onMouseDown={keepFocus} onClick={run((c) => c.undo())} disabled={!can('undo')} aria-label="Undo" title="Undo"><IconUndo /></button>
         <button className="tool" type="button" onMouseDown={keepFocus} onClick={run((c) => c.redo())} disabled={!can('redo')} aria-label="Redo" title="Redo"><IconRedo /></button>
