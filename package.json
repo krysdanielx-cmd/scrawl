@@ -1,0 +1,48 @@
+{
+  "name": "scrawl",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c yellow,cyan \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "node --watch server/index.js",
+    "dev:client": "vite",
+    "build": "NODE_ENV=production vite build",
+    "start": "NODE_ENV=production node server/index.js",
+    "check": "npm run build && node --check server/index.js && node --check server/routes/auth.js && node --check server/routes/me.js",
+    "test:jwt": "node server/tests/jwt.mjs",
+    "test:e2e:browser": "node server/tests/e2e-browser.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.56.0",
+    "@tiptap/extension-placeholder": "^2.27.2",
+    "@tiptap/extension-task-item": "^2.27.2",
+    "@tiptap/extension-task-list": "^2.27.2",
+    "@tiptap/pm": "^2.27.2",
+    "@tiptap/react": "^2.27.2",
+    "@tiptap/starter-kit": "^2.27.2",
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.0.1",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "zod": "^4.1.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.0.2",
+    "autoprefixer": "^10.4.21",
+    "canvas": "^3.2.3",
+    "concurrently": "^9.2.1",
+    "postcss": "^8.5.6",
+    "sharp": "^0.35.3",
+    "tailwindcss": "^3.4.17",
+    "vite": "^7.1.3"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  }
+}
