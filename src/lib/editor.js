@@ -240,8 +240,10 @@ export function buildExtensions({ placeholder } = {}) {
     CustomTableHeader,
     CustomTableCell,
     Link.configure({
-      openOnClick: false,
-      HTMLAttributes: { class: 'prose-link' },
+      openOnClick: true,
+      autolink: true,
+      linkOnPaste: true,
+      HTMLAttributes: { class: 'prose-link', target: '_blank', rel: 'noopener noreferrer' },
     }),
     Underline,
     Highlight,
