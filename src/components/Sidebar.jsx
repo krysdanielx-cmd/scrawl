@@ -1,4 +1,22 @@
+import { useState, useEffect } from 'react';
 import { IconArchive, IconFolder, IconPencil, IconPlus, IconSignOut, IconStack, IconTrash } from '../lib/icons.jsx';
+
+function ThemeToggle() {
+  const [theme, setTheme] = useState(() => localStorage.getItem('scrawl-theme') || 'light');
+  
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme === 'light' ? '' : theme);
+    localStorage.setItem('scrawl-theme', theme);
+  }, [theme]);
+
+  return (
+    <div className="theme-toggle">
+      <button type="button" data-on={theme === 'light'} onClick={() => setTheme('light')} title="Light">☀️</button>
+      <button type="button" data-on={theme === 'dark'} onClick={() => setTheme('dark')} title="Dark">🌙</button>
+      <button type="button" data-on={theme === 'ambient'} onClick={() => setTheme('ambient')} title="Ambient">🕯️</button>
+    </div>
+  );
+}
 
 export default function Sidebar({
   open, folders, totals, view, email,
@@ -84,6 +102,7 @@ export default function Sidebar({
       </div>
 
       <div className="side-foot">
+        <ThemeToggle />
         <p className="who" title={email}>{email}</p>
         <button className="nav-item" type="button" onClick={onSignOut}>
           <IconSignOut />
