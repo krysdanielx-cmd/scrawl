@@ -63,8 +63,8 @@
   --radius-panel: 20px;
   --radius-tile: 12px;
 
-  --display: 'Fraunces', Georgia, 'Times New Roman', serif;
-  --body: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --display: 'New York', Georgia, 'Times New Roman', serif;
+  --body: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
 
   --sidebar-w: 268px;
   --rail-h: 60px;
@@ -479,7 +479,7 @@ button:disabled { cursor: not-allowed; }
 }
 
 /* prose, shared by the editor and the public reader */
-.prose { font-size: 1.0625rem; line-height: 1.75; color: var(--ink); }
+.prose { font-family: var(--display); font-size: 1.0625rem; line-height: 1.75; color: var(--ink); }
 /* An empty note used to be a 30px hit area in a 900px pane. */
 .editor-body .prose { min-height: 46vh; }
 .editor-body { cursor: text; }
