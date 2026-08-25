@@ -237,8 +237,8 @@ export function buildExtensions({ placeholder } = {}) {
       HTMLAttributes: { class: 'prose-table' },
     }),
     TableRow,
-    CustomTableHeader,
-    CustomTableCell,
+    TableHeader,
+    TableCell,
     Link.configure({
       openOnClick: true,
       autolink: true,
@@ -247,10 +247,6 @@ export function buildExtensions({ placeholder } = {}) {
     }),
     Underline,
     Highlight,
-    Callout,
-    Columns,
-    Column,
-    Badge,
     StrikeShortcut,
     ...(placeholder ? [Placeholder.configure({ placeholder })] : []),
   ];
