@@ -437,10 +437,12 @@ button:disabled { cursor: not-allowed; }
 .save-dot { width: 7px; height: 7px; border-radius: 999px; background: currentColor; }
 
 .toolbar {
+  position: sticky; top: 52px; z-index: 19;
   display: flex; align-items: center; gap: 2px; flex-wrap: wrap;
   padding: 8px clamp(16px, 4vw, 40px);
   border-bottom: 1px solid var(--line);
-  background: var(--paper);
+  background: rgba(247, 246, 244, .92);
+  backdrop-filter: blur(10px);
 }
 .toolbar .divider { width: 1px; height: 20px; margin: 0 6px; background: var(--line-2); }
 .tool {
@@ -607,6 +609,7 @@ button:disabled { cursor: not-allowed; }
   .folder-tile { min-height: 104px; padding: 14px; }
   .editor-shell { min-height: calc(100dvh - var(--rail-h)); }
   .editor-bar { top: calc(var(--rail-h) + env(safe-area-inset-top)); padding-top: 10px; }
+  .toolbar { top: calc(var(--rail-h) + 52px + env(safe-area-inset-top)); }
   .editor-body { padding: 22px 18px 96px; }
   .searchbar { min-height: 48px; }
   .overlay { padding-top: max(24px, env(safe-area-inset-top)); }
