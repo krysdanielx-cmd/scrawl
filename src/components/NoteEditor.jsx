@@ -3,9 +3,11 @@ import { EditorContent, useEditor } from '@tiptap/react';
 import { api } from '../api.js';
 import { buildExtensions, safeContent } from '../lib/editor.js';
 import { fullDate } from '../lib/format.js';
+import TableMenu from './TableMenu.jsx';
 import {
   IconArchive, IconBack, IconBullets, IconChecklist, IconCode, IconCopy,
   IconNumbers, IconPin, IconQuote, IconRedo, IconShare, IconStrike, IconTable, IconTrash, IconUndo,
+  IconLink, IconHighlight, IconCallout, IconUnderline,
 } from '../lib/icons.jsx';
 
 const AUTOSAVE_MS = 500;
@@ -201,7 +203,9 @@ export default function NoteEditor({ note, folders, onMetaChange, onArchived, on
       <div className="toolbar" role="toolbar" aria-label="Formatting">
         <button className="tool" type="button" onMouseDown={keepFocus} data-on={on('bold')} onClick={run((c) => c.toggleBold())} aria-label="Bold" title="Bold (⌘B)"><span className="serif-b">B</span></button>
         <button className="tool" type="button" onMouseDown={keepFocus} data-on={on('italic')} onClick={run((c) => c.toggleItalic())} aria-label="Italic" title="Italic (⌘I)"><span className="serif-i">I</span></button>
+        <button className="tool" type="button" onMouseDown={keepFocus} data-on={on('underline')} onClick={run((c) => c.toggleUnderline())} aria-label="Underline" title="Underline (⌘U)"><IconUnderline /></button>
         <button className="tool" type="button" onMouseDown={keepFocus} data-on={on('strike')} onClick={run((c) => c.toggleStrike())} aria-label="Strikethrough" title="Strikethrough (⌘⇧X)"><IconStrike /></button>
+        <button className="tool" type="button" onMouseDown={keepFocus} data-on={on('highlight')} onClick={run((c) => c.toggleHighlight())} aria-label="Highlight" title="Highlight"><IconHighlight /></button>
         <span className="divider" />
         <button className="tool" type="button" onMouseDown={keepFocus} data-on={on('heading', { level: 1 })} onClick={run((c) => c.toggleHeading({ level: 1 }))} aria-label="Heading 1" title="Heading 1">H1</button>
         <button className="tool" type="button" onMouseDown={keepFocus} data-on={on('heading', { level: 2 })} onClick={run((c) => c.toggleHeading({ level: 2 }))} aria-label="Heading 2" title="Heading 2">H2</button>
@@ -212,12 +216,15 @@ export default function NoteEditor({ note, folders, onMetaChange, onArchived, on
         <button className="tool" type="button" onMouseDown={keepFocus} data-on={on('taskList')} onClick={run((c) => c.toggleTaskList())} aria-label="Checklist" title="Checklist"><IconChecklist /></button>
         <span className="divider" />
         <button className="tool" type="button" onMouseDown={keepFocus} data-on={on('blockquote')} onClick={run((c) => c.toggleBlockquote())} aria-label="Quote" title="Quote"><IconQuote /></button>
+        <button className="tool" type="button" onMouseDown={keepFocus} data-on={on('callout')} onClick={run((c) => c.toggleCallout())} aria-label="Callout" title="Callout"><IconCallout /></button>
         <button className="tool" type="button" onMouseDown={keepFocus} data-on={on('codeBlock')} onClick={run((c) => c.toggleCodeBlock())} aria-label="Code block" title="Code block"><IconCode /></button>
         <button className="tool" type="button" onMouseDown={keepFocus} onClick={run((c) => c.insertTable({ rows: 3, cols: 3, withHeaderRow: true }))} aria-label="Insert table" title="Insert table"><IconTable /></button>
         <span className="divider" />
         <button className="tool" type="button" onMouseDown={keepFocus} onClick={run((c) => c.undo())} disabled={!can('undo')} aria-label="Undo" title="Undo"><IconUndo /></button>
         <button className="tool" type="button" onMouseDown={keepFocus} onClick={run((c) => c.redo())} disabled={!can('redo')} aria-label="Redo" title="Redo"><IconRedo /></button>
       </div>
+
+      <TableMenu editor={editor} />
 
       {/* Clicking the empty space under the text should put the cursor at the end,
           the way every native notes app behaves. */}

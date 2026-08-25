@@ -7,18 +7,65 @@
     <meta name="description" content="Scrawl, a quiet place for working notes.">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <!-- default keeps the iOS clock and battery dark. black-translucent forces
-         them white, which disappears against the cream shell. -->
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Scrawl">
     <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+    <link rel="preconnect" href="https://skdjipkozclzspumqdga.supabase.co">
     <title>Scrawl</title>
+    <style>
+      /* Inline critical CSS for instant splash */
+      :root { --cobalt: #0047AB; }
+      html { background: #f7f6f4; }
+      @media (prefers-color-scheme: dark) { html { background: #1a1a1a; } }
+      body { margin: 0; font-family: system-ui, -apple-system, sans-serif; }
+      .splash {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        background: inherit;
+      }
+      .splash-mark {
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+        background: var(--cobalt);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: Georgia, serif;
+        font-size: 32px;
+        font-weight: 600;
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.7; transform: scale(0.98); }
+      }
+      .splash-text {
+        font-size: 14px;
+        color: #6b6862;
+        letter-spacing: 0.5px;
+      }
+      @media (prefers-color-scheme: dark) {
+        .splash-text { color: #9ca3af; }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="splash" aria-label="Loading Scrawl">
+        <div class="splash-mark">S</div>
+        <div class="splash-text">Opening your desk...</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

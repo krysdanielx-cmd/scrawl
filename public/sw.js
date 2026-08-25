@@ -5,11 +5,14 @@
  * belong in Postgres, not in a cache a shared device could read.
  * Bump VERSION whenever the shell contract changes.
  */
-const VERSION = 'v3';
+const VERSION = 'v4';
 const SHELL = `scrawl-shell-${VERSION}`;
 const ASSETS = `scrawl-assets-${VERSION}`;
 const SHELL_URLS = [
-  '/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png',
+  '/', '/manifest.json', 
+  '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png',
+  '/icon-192-light.png', '/icon-512-light.png', '/apple-touch-icon-light.png',
+  '/icon-192-dark.png', '/icon-512-dark.png', '/apple-touch-icon-dark.png',
   '/fonts/fraunces-latin-var.woff2', '/fonts/plus-jakarta-sans-latin-var.woff2',
 ];
 
@@ -75,7 +78,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Hashed build output is immutable: cache first.
+  // Hashed build output is immutable: cache first, always serve from cache when available.
   if (url.pathname.startsWith('/assets/')) {
     event.respondWith((async () => {
       const cached = await caches.match(request, { cacheName: ASSETS, ignoreVary: true });
@@ -87,13 +90,18 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Icons, fonts and the manifest: serve fast, refresh in the background.
+  // Icons, fonts and the manifest: serve from cache first for speed, update in background.
   event.respondWith((async () => {
     const cached = await caches.match(request, { cacheName: SHELL, ignoreVary: true });
-    const network = fetch(request).then(async (fresh) => {
-      if (fresh.ok) (await caches.open(SHELL)).put(request, fresh.clone());
-      return fresh;
-    }).catch(() => cached);
-    return cached || network;
+    if (cached) {
+      // Background refresh
+      fetch(request).then(async (fresh) => {
+        if (fresh.ok) (await caches.open(SHELL)).put(request, fresh.clone());
+      }).catch(() => {});
+      return cached;
+    }
+    const fresh = await fetch(request);
+    if (fresh.ok) (await caches.open(SHELL)).put(request, fresh.clone());
+    return fresh;
   })());
 });

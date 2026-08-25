@@ -46,3 +46,8 @@ export const IconRedo = make(<><path d="M20 9.5h-9.5a5 5 0 0 0 0 10H16" /><path 
 export const IconSignOut = make(<><path d="M14 7V5.5A1.5 1.5 0 0 0 12.5 4h-6A1.5 1.5 0 0 0 5 5.5v13A1.5 1.5 0 0 0 6.5 20h6a1.5 1.5 0 0 0 1.5-1.5V17" /><path d="M10 12h10" /><path d="m17 8.5 3.5 3.5L17 15.5" /></>);
 export const IconStrike = make(<><path d="M5 12h14" /><path d="M16.5 6.8c-1.2-1.2-3-1.6-4.8-1.3-2.4.4-4.2 2-4.2 3.8 0 1.2.8 2.2 2 2.7" /><path d="M7.5 17.2c1.2 1.2 3 1.6 4.8 1.3 2.4-.4 4.2-2 4.2-3.8 0-.8-.4-1.5-1-2" /></>);
 export const IconTable = make(<><rect x="4" y="5" width="16" height="14" rx="1.5" /><path d="M4 10h16" /><path d="M4 15h16" /><path d="M10 5v14" /></>);
+export const IconLink = make(<><path d="M10 14a3.5 3.5 0 0 0 5 0l4-4a3.5 3.5 0 0 0-5-5l-.5.5" /><path d="M14 10a3.5 3.5 0 0 0-5 0l-4 4a3.5 3.5 0 0 0 5 5l.5-.5" /></>);
+export const IconHighlight = make(<><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></>);
+export const IconCallout = make(<><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M7 9h10" /><path d="M7 13h6" /></>);
+export const IconUnderline = make(<><path d="M6 4v6a6 6 0 0 0 12 0V4" /><path d="M4 20h16" /></>);
+export const IconColumns = make(<><rect x="3" y="4" width="7" height="16" rx="1" /><rect x="14" y="4" width="7" height="16" rx="1" /></>);
