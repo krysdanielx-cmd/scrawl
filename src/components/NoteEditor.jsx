@@ -7,7 +7,7 @@ import { fullDate } from '../lib/format.js';
 import {
   IconArchive, IconBack, IconBullets, IconChecklist, IconCode, IconCopy,
   IconNumbers, IconPin, IconQuote, IconRedo, IconShare, IconStrike, IconTable, IconTrash, IconUndo,
-  IconLink, IconHighlight, IconUnderline,
+  IconLink, IconUnderline,
 } from '../lib/icons.jsx';
 
 const AUTOSAVE_MS = 500;
@@ -205,7 +205,7 @@ export default function NoteEditor({ note, folders, onMetaChange, onArchived, on
         <button className="tool" type="button" onMouseDown={keepFocus} data-on={on('italic')} onClick={run((c) => c.toggleItalic())} aria-label="Italic" title="Italic (⌘I)"><span className="serif-i">I</span></button>
         <button className="tool" type="button" onMouseDown={keepFocus} data-on={on('underline')} onClick={run((c) => c.toggleUnderline())} aria-label="Underline" title="Underline (⌘U)"><IconUnderline /></button>
         <button className="tool" type="button" onMouseDown={keepFocus} data-on={on('strike')} onClick={run((c) => c.toggleStrike())} aria-label="Strikethrough" title="Strikethrough (⌘⇧X)"><IconStrike /></button>
-        <button className="tool" type="button" onMouseDown={keepFocus} data-on={on('highlight')} onClick={run((c) => c.toggleHighlight())} aria-label="Highlight" title="Highlight"><IconHighlight /></button>
+
         <span className="divider" />
         <button className="tool" type="button" onMouseDown={keepFocus} data-on={on('heading', { level: 1 })} onClick={run((c) => c.toggleHeading({ level: 1 }))} aria-label="Heading 1" title="Heading 1">H1</button>
         <button className="tool" type="button" onMouseDown={keepFocus} data-on={on('heading', { level: 2 })} onClick={run((c) => c.toggleHeading({ level: 2 }))} aria-label="Heading 2" title="Heading 2">H2</button>
