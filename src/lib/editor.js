@@ -8,6 +8,27 @@ import Underline from '@tiptap/extension-underline';
 
 export const EMPTY_DOC = { type: 'doc', content: [{ type: 'paragraph' }] };
 
+// Strip background colors and other unwanted styles from pasted content
+export function transformPastedHTML(html) {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  
+  // Remove background colors and other unwanted inline styles
+  div.querySelectorAll('[style]').forEach(el => {
+    const style = el.style;
+    style.backgroundColor = '';
+    style.background = '';
+    style.color = ''; // Let Scrawl's theme handle text color
+  });
+  
+  // Remove background color attributes
+  div.querySelectorAll('[bgcolor]').forEach(el => {
+    el.removeAttribute('bgcolor');
+  });
+  
+  return div.innerHTML;
+}
+
 export function buildExtensions({ placeholder } = {}) {
   return [
     StarterKit.configure({
