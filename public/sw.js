@@ -5,7 +5,7 @@
  * belong in Postgres, not in a cache a shared device could read.
  * Bump VERSION whenever the shell contract changes.
  */
-const VERSION = 'v5';
+const VERSION = 'v6';
 const SHELL = `scrawl-shell-${VERSION}`;
 const ASSETS = `scrawl-assets-${VERSION}`;
 const SHELL_URLS = [
@@ -25,6 +25,7 @@ p{max-width:28ch;line-height:1.6;color:#6b6862}b{color:#0047AB}</style></head>
 <body><div><p><b>Scrawl</b> needs a connection to load your notes. Reopen when you are back online.</p></div></body></html>`;
 
 self.addEventListener('install', (event) => {
+  self.skipWaiting(); // Force immediate activation
   event.waitUntil((async () => {
     const cache = await caches.open(SHELL);
     await cache.addAll(SHELL_URLS.map((url) => new Request(url, { cache: 'reload' })));
