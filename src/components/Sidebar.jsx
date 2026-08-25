@@ -26,8 +26,8 @@ function ThemeToggle() {
 }
 
 export default function Sidebar({
-  open, folders, totals, view, email,
-  onSelect, onNewFolder, onRenameFolder, onDeleteFolder, onSignOut,
+  open, folders, totals, recent, view, email,
+  onSelect, onNewFolder, onRenameFolder, onDeleteFolder, onOpenNote, onSignOut,
 }) {
   const isOn = (type, folderId) =>
     view.type === type && (type !== 'folder' || view.folderId === folderId);
@@ -106,6 +106,22 @@ export default function Sidebar({
           <span className="nav-text">Archive</span>
           <span className="nav-count">{totals.archived}</span>
         </button>
+
+        {recent && recent.length > 0 && (
+          <>
+            <p className="side-label">Recent</p>
+            {recent.slice(0, 5).map((note) => (
+              <button
+                key={note.id}
+                className="nav-item nav-item-compact"
+                type="button"
+                onClick={() => onOpenNote(note.id)}
+              >
+                <span className="nav-text">{note.title?.trim() || 'Untitled'}</span>
+              </button>
+            ))}
+          </>
+        )}
       </div>
 
       <div className="side-foot">

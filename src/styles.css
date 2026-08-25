@@ -367,6 +367,8 @@ button:disabled { cursor: not-allowed; }
 .nav-item:hover { background: var(--paper-2); color: var(--ink); }
 .nav-item[data-on='true'] { background: var(--cobalt-soft); color: var(--cobalt-deep); font-weight: 600; }
 .nav-item[data-on='true'] svg, .nav-item[data-on='true'] .nav-count { color: var(--cobalt-mid); }
+.nav-item-compact { padding: 8px 10px 8px 18px; font-size: .8125rem; color: var(--muted); }
+.nav-item-compact:hover { color: var(--ink); }
 
 .side-foot { padding-top: 12px; border-top: 1px solid var(--line); }
 .side-foot .who { padding: 0 10px 8px; color: var(--faint); font-size: .6875rem; overflow: hidden; text-overflow: ellipsis; }

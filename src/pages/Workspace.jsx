@@ -313,12 +313,14 @@ export default function Workspace({ session, onSignOut }) {
         open={drawer}
         folders={folders}
         totals={totals}
+        recent={recent}
         view={view}
         email={session.user?.email || ''}
         onSelect={selectView}
         onNewFolder={() => { setDrawer(false); setFolderModal({ open: true, folder: null }); }}
         onRenameFolder={(folder) => setFolderModal({ open: true, folder })}
         onDeleteFolder={(folder) => askDeleteFolder(folder)}
+        onOpenNote={(id) => { setDrawer(false); openNoteById(id); }}
         onSignOut={onSignOut}
       />
       {drawer && <div className="scrim" onClick={() => setDrawer(false)} aria-hidden="true" />}
