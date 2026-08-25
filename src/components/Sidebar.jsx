@@ -7,6 +7,13 @@ function ThemeToggle() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme === 'light' ? '' : theme);
     localStorage.setItem('scrawl-theme', theme);
+    
+    // Update favicon based on theme
+    const isDark = theme === 'dark' || theme === 'ambient';
+    const suffix = isDark ? '-dark' : '-light';
+    document.querySelector('link[rel="icon"][sizes="512x512"]')?.setAttribute('href', `/icon-512${suffix}.png`);
+    document.querySelector('link[rel="icon"][sizes="192x192"]')?.setAttribute('href', `/icon-192${suffix}.png`);
+    document.querySelector('link[rel="apple-touch-icon"]')?.setAttribute('href', `/apple-touch-icon${suffix}.png`);
   }, [theme]);
 
   return (
