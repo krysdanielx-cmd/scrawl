@@ -258,10 +258,18 @@ export function buildExtensions({ placeholder } = {}) {
 
 /** Tiptap chokes on null/undefined content; hand it an empty doc instead. */
 export function safeContent(content) {
-  if (!content || typeof content !== 'object' || content.type !== 'doc') return EMPTY_DOC;
+  console.log('[scrawl] safeContent input:', JSON.stringify(content)?.slice(0, 200));
+  if (!content || typeof content !== 'object' || content.type !== 'doc') {
+    console.log('[scrawl] returning EMPTY_DOC - invalid content structure');
+    return EMPTY_DOC;
+  }
   // Older notes were saved as a doc with zero children, which renders as a bare
   // gap cursor with no paragraph to type into.
-  if (!Array.isArray(content.content) || content.content.length === 0) return EMPTY_DOC;
+  if (!Array.isArray(content.content) || content.content.length === 0) {
+    console.log('[scrawl] returning EMPTY_DOC - empty content array');
+    return EMPTY_DOC;
+  }
+  console.log('[scrawl] content valid, returning as-is');
   return content;
 }
 
