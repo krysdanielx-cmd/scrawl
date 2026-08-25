@@ -16,8 +16,23 @@ export default function SearchOverlay({ open, onClose, onOpenNote }) {
     setTerm('');
     setHits([]);
     setActive(0);
-    const id = requestAnimationFrame(() => inputRef.current?.focus());
-    return () => cancelAnimationFrame(id);
+    // One rAF was not enough: if the click that opened the panel unmounts its own
+    // button, focus can land back on <body> after our call. Retry briefly until
+    // the input really holds focus.
+    // Focus synchronously first: effects run after the DOM is updated but before
+    // paint, so the input is already focusable and no keystroke can be dropped.
+    inputRef.current?.focus();
+    let frame = 0;
+    let tries = 0;
+    const grab = () => {
+      const input = inputRef.current;
+      if (!input) return;
+      if (document.activeElement !== input) input.focus();
+      tries += 1;
+      if (document.activeElement !== input && tries < 12) frame = requestAnimationFrame(grab);
+    };
+    frame = requestAnimationFrame(grab);
+    return () => cancelAnimationFrame(frame);
   }, [open]);
 
   useEffect(() => {

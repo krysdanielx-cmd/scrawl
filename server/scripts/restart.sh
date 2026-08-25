@@ -60,4 +60,17 @@ if [ "$code" != "401" ]; then
   exit 1
 fi
 
-echo "Scrawl running on ${PORT} (pid ${started}), notes routes confirmed live"
+# Second proof, this one for the shell release: /sw.js must be real JS served
+# with no-cache. Before this release the SPA fallback answered with HTML.
+sw_headers="$(curl -sI "http://localhost:${PORT}/sw.js")"
+if ! grep -qi 'content-type: application/javascript' <<<"$sw_headers"; then
+  echo "stale build on port ${PORT}: /sw.js is not served as JavaScript" >&2
+  echo "$sw_headers" >&2
+  exit 1
+fi
+if ! grep -qi 'cache-control: no-cache' <<<"$sw_headers"; then
+  echo "stale build on port ${PORT}: /sw.js is missing no-cache" >&2
+  exit 1
+fi
+
+echo "Scrawl running on ${PORT} (pid ${started}), notes routes + service worker confirmed live"

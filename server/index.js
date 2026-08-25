@@ -17,7 +17,34 @@ const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
-app.use(helmet({ contentSecurityPolicy: env.NODE_ENV === 'production' ? undefined : false }));
+// Helmet's defaults plus a tighter CSP. 'unsafe-inline' stays on style-src only
+// because React writes inline styles; scripts stay strictly same-origin.
+app.use(helmet({
+  contentSecurityPolicy: env.NODE_ENV === 'production' ? {
+    useDefaults: true,
+    directives: {
+      'default-src': ["'self'"],
+      'base-uri': ["'self'"],
+      'script-src': ["'self'"],
+      'script-src-attr': ["'none'"],
+      'style-src': ["'self'", "'unsafe-inline'"],
+      'img-src': ["'self'", 'data:', 'blob:'],
+      'font-src': ["'self'", 'data:'],
+      'connect-src': ["'self'"],
+      'worker-src': ["'self'"],
+      'manifest-src': ["'self'"],
+      'form-action': ["'self'"],
+      'frame-ancestors': ["'none'"],
+      'object-src': ["'none'"],
+      'upgrade-insecure-requests': [],
+    },
+  } : false,
+  hsts: { maxAge: 31536000, includeSubDomains: true, preload: false },
+  referrerPolicy: { policy: 'no-referrer' },
+  frameguard: { action: 'deny' },
+  crossOriginOpenerPolicy: { policy: 'same-origin' },
+  crossOriginResourcePolicy: { policy: 'same-origin' },
+}));
 app.use(cors({
   origin(origin, callback) {
     if (!origin || origin === env.CLIENT_ORIGIN) return callback(null, true);
@@ -51,7 +78,21 @@ app.use('/api/public', rateLimit({
 }), publicRoutes);
 
 if (env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(rootDir, 'dist'), { index: false, maxAge: '1h' }));
+  // The worker must never be cached, or a stale one pins an old shell forever.
+  app.get('/sw.js', (req, res) => {
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Service-Worker-Allowed', '/');
+    res.type('application/javascript');
+    res.sendFile(path.join(rootDir, 'dist', 'sw.js'));
+  });
+  app.use(express.static(path.join(rootDir, 'dist'), {
+    index: false,
+    setHeaders(res, filePath) {
+      // Hashed bundles are immutable; the shell and icons must revalidate.
+      if (filePath.includes(`${path.sep}assets${path.sep}`)) res.set('Cache-Control', 'public, max-age=31536000, immutable');
+      else res.set('Cache-Control', 'public, max-age=0, must-revalidate');
+    },
+  }));
   app.get('/{*splat}', (req, res, next) => {
     if (req.path.startsWith('/api/')) return next();
     return res.sendFile(path.join(rootDir, 'dist', 'index.html'));

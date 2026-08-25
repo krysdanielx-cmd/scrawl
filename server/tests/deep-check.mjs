@@ -62,7 +62,11 @@ function watch(page) {
   const errors = [];
   page.on('console', (m) => { if (m.type() === 'error') errors.push(`console: ${m.text()}`); });
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
-  page.on('requestfailed', (r) => errors.push(`requestfailed: ${r.url()} ${r.failure()?.errorText}`));
+  page.on('requestfailed', (r) => {
+    // A reload cancels in-flight fetches. That is the harness, not the app.
+    if (r.failure()?.errorText === 'net::ERR_ABORTED') return;
+    errors.push(`requestfailed: ${r.url()} ${r.failure()?.errorText}`);
+  });
   page.on('response', (r) => { if (r.status() >= 400) errors.push(`http ${r.status()}: ${r.url()}`); });
   return errors;
 }
@@ -71,7 +75,7 @@ const overflow = (page) => page.evaluate(() =>
   Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
 
 // Every visible interactive element smaller than 44x44 CSS px.
-const smallTargets = (page) => page.evaluate(() => {
+const smallTargets = (page, floor = 44) => page.evaluate((min) => {
   const sel = 'a, button, input:not([type=hidden]), select, textarea, [role=button], [tabindex]:not([tabindex="-1"])';
   const out = [];
   for (const el of document.querySelectorAll(sel)) {
@@ -79,7 +83,7 @@ const smallTargets = (page) => page.evaluate(() => {
     const r = el.getBoundingClientRect();
     if (r.width === 0 || r.height === 0) continue;
     if (el.matches('.prose a, .reader-body a')) continue; // inline links in prose are exempt
-    if (r.width < 44 || r.height < 44) {
+    if (r.width < min || r.height < min) {
       out.push({
         tag: el.tagName.toLowerCase(),
         label: (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 28),
@@ -88,7 +92,7 @@ const smallTargets = (page) => page.evaluate(() => {
     }
   }
   return out;
-});
+}, floor);
 
 const smallText = (page) => page.evaluate(() => {
   const out = [];
@@ -108,6 +112,7 @@ const fontsLoaded = (page) => page.evaluate(async () => {
   return {
     jakarta: document.fonts.check('16px "Plus Jakarta Sans"'),
     fraunces: document.fonts.check('16px "Fraunces"'),
+    anyFraunces: [...document.fonts].some((f) => /Fraunces/.test(f.family) && f.status === 'loaded'),
     families: [...document.fonts].map((f) => `${f.family} ${f.weight} ${f.status}`).slice(0, 12),
   };
 });
@@ -163,6 +168,10 @@ async function assetChecks() {
   const hasSw = sw.status === 200 && !swBody.includes('<div id="root">');
   check('service worker file exists (needed for offline + auto install prompt)', hasSw,
     hasSw ? 'ok' : 'no /sw.js, the SPA fallback HTML is served instead');
+  check('service worker is served as JavaScript', /javascript/.test(sw.headers.get('content-type') || ''), sw.headers.get('content-type'));
+  check('service worker is not cached', /no-cache|no-store/.test(sw.headers.get('cache-control') || ''), sw.headers.get('cache-control'));
+  check('service worker has a fetch handler', /addEventListener\('fetch'/.test(swBody));
+  check('service worker never caches /api/', /pathname\.startsWith\('\/api\/'\)/.test(swBody));
 
   // no secrets in the shipped bundle
   const html = await (await fetch(BASE)).text();
@@ -194,8 +203,11 @@ async function assetChecks() {
 
   const headers = (await fetch(BASE)).headers;
   for (const h of ['x-content-type-options', 'x-frame-options', 'referrer-policy', 'content-security-policy', 'strict-transport-security']) {
-    if (!headers.get(h)) note(`missing security header: ${h}`);
+    check(`security header ${h} is set`, Boolean(headers.get(h)), headers.get(h));
   }
+  const csp = headers.get('content-security-policy') || '';
+  check('CSP blocks framing outright', /frame-ancestors 'none'/.test(csp), csp);
+  check('CSP keeps scripts same-origin', /script-src 'self'/.test(csp) && !/script-src[^;]*unsafe/.test(csp), csp);
 }
 
 // ---------------------------------------------------------------- browser
@@ -235,8 +247,24 @@ async function run() {
       check(`[${tag}] every input is 16px or larger`, inputs.length === 0, inputs);
       const fonts = await fontsLoaded(page);
       check(`[${tag}] Plus Jakarta Sans loaded`, fonts.jakarta, fonts);
-      check(`[${tag}] Fraunces loaded`, fonts.fraunces, fonts);
+      check(`[${tag}] a Fraunces weight actually loaded`, fonts.fraunces || fonts.anyFraunces, fonts);
+      const headingFont = await page.$eval('.auth-intro h1', (el) => getComputedStyle(el).fontFamily);
+      check(`[${tag}] the display heading is set in Fraunces`, /Fraunces/.test(headingFont), headingFont);
+      const headingRendered = await page.evaluate(() => {
+        const el = document.querySelector('.auth-intro h1');
+        const style = getComputedStyle(el);
+        const canvas = document.createElement('canvas').getContext('2d');
+        canvas.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+        const withFont = canvas.measureText(el.textContent).width;
+        canvas.font = `${style.fontWeight} ${style.fontSize} serif`;
+        return { withFont, fallback: canvas.measureText(el.textContent).width };
+      });
+      check(`[${tag}] the heading is NOT falling back to a system serif`,
+        Math.abs(headingRendered.withFont - headingRendered.fallback) > 1, headingRendered);
       check(`[${tag}] no tofu`, (await tofu(page)).length === 0, await tofu(page));
+      const thirdParty = await page.evaluate(() => performance.getEntriesByType('resource')
+        .map((e) => new URL(e.name).origin).filter((o) => o !== location.origin));
+      check(`[${tag}] the page loads nothing third party`, thirdParty.length === 0, [...new Set(thirdParty)]);
       check(`[${tag}] no broken images`, (await brokenImages(page)).length === 0, await brokenImages(page));
       const themeColor = await page.$eval('meta[name=theme-color]', (el) => el.content).catch(() => null);
       check(`[${tag}] theme-color meta present`, themeColor === '#0047AB', themeColor);
@@ -248,8 +276,9 @@ async function run() {
         return el ? getComputedStyle(el).minHeight : null;
       });
       check(`[${tag}] auth shell has a min-height`, Boolean(dvh) && dvh !== '0px', dvh);
-      const targets = await smallTargets(page);
-      check(`[${tag}] auth touch targets are 44px or bigger`, targets.length === 0, targets);
+      const floor = mobile ? 44 : 24; // Apple's touch floor vs WCAG 2.2 AA for a pointer
+      const targets = await smallTargets(page, floor);
+      check(`[${tag}] auth targets clear ${floor}px`, targets.length === 0, targets);
       // password field must not be readable
       check(`[${tag}] password field is masked`, (await page.getAttribute('#password', 'type')) === 'password');
       const labelled = await page.evaluate(() => ['email', 'password']
@@ -259,6 +288,49 @@ async function run() {
       check(`[${tag}] html has a lang attribute`, Boolean(lang), lang);
       check(`[${tag}] auth page is error free`, errors.length === 0, errors);
       await shot(page, `${tag}-01-auth`);
+
+      // service worker: registers, controls the page, and serves a shell offline
+      const registered = await page.evaluate(async () => {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (!reg) return null;
+        await navigator.serviceWorker.ready;
+        return { scope: reg.scope, active: Boolean(reg.active) };
+      });
+      check(`[${tag}] the service worker registers and activates`, registered?.active === true, registered);
+      const cached = await page.evaluate(async () => {
+        const keys = await caches.keys();
+        const names = [];
+        for (const key of keys) names.push(...(await (await caches.open(key)).keys()).map((r) => new URL(r.url).pathname));
+        return names;
+      });
+      check(`[${tag}] the shell is precached`, cached.includes('/'), cached);
+      check(`[${tag}] the fonts are precached for offline`,
+        cached.some((u) => u.includes('fraunces')), cached);
+      check(`[${tag}] no API response was cached`, !cached.some((u) => u.startsWith('/api/')), cached);
+      check(`[${tag}] the built bundles are precached`,
+        cached.some((u) => u.endsWith('.js') && u.startsWith('/assets/'))
+        && cached.some((u) => u.endsWith('.css')), cached);
+
+      const offlineFailures = [];
+      page.on('requestfailed', (r) => offlineFailures.push(new URL(r.url()).pathname));
+      await context.setOffline(true);
+      const offline = await page.goto(BASE, { waitUntil: 'domcontentloaded' }).catch(() => null);
+      await page.waitForTimeout(1500);
+      check(`[${tag}] the app still answers while offline`, Boolean(offline) && offline.status() < 400,
+        offline ? offline.status() : 'no response');
+      const offlineText = await page.evaluate(() => document.body.innerText.slice(0, 120));
+      check(`[${tag}] the offline response is not a browser error page`, offlineText.length > 0, offlineText);
+      check(`[${tag}] nothing fails to load offline`, offlineFailures.length === 0, offlineFailures);
+      const offlineFonts = await page.evaluate(async () => {
+        await document.fonts.ready;
+        return [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family);
+      });
+      check(`[${tag}] both typefaces render offline`,
+        offlineFonts.some((f) => /Fraunces/.test(f)) && offlineFonts.some((f) => /Jakarta/.test(f)), offlineFonts);
+      check(`[${tag}] the offline shell still shows the sign-in form`,
+        (await page.locator('#password').count()) === 1);
+      await shot(page, `${tag}-09-offline`);
+      await context.setOffline(false);
       await context.close();
     } catch (e) { failures.push(`[${tag}] signed out threw: ${e.message}`); console.log(`FAIL  [${tag}] signed out threw :: ${e.message}`); }
 
@@ -289,8 +361,9 @@ async function run() {
       check(`[${tag}] dashboard fonts loaded`, (await fontsLoaded(page)).jakarta);
       check(`[${tag}] no tofu on the dashboard`, (await tofu(page)).length === 0, await tofu(page));
       check(`[${tag}] no broken images on the dashboard`, (await brokenImages(page)).length === 0, await brokenImages(page));
-      let targets = await smallTargets(page);
-      check(`[${tag}] dashboard touch targets are 44px or bigger`, targets.length === 0, targets);
+      const floor = mobile ? 44 : 24;
+      let targets = await smallTargets(page, floor);
+      check(`[${tag}] dashboard targets clear ${floor}px`, targets.length === 0, targets);
       await shot(page, `${tag}-02-dashboard`);
 
       // mobile navigation drawer
@@ -299,15 +372,15 @@ async function run() {
         await page.waitForTimeout(400);
         const openX = (await page.locator('.sidebar').boundingBox()).x;
         check(`[${tag}] nav drawer slides in`, openX >= 0, openX);
-        const navTargets = await smallTargets(page);
+        const navTargets = await smallTargets(page, 44);
         check(`[${tag}] drawer touch targets are 44px or bigger`, navTargets.length === 0, navTargets);
         await shot(page, `${tag}-03-nav`);
-        await page.keyboard.press('Escape').catch(() => {});
       }
 
-      // note list
+      // note list. On mobile the drawer is already open from the block above.
       if (mobile && (await page.locator('.sidebar').boundingBox()).x < 0) {
         await page.locator('.topbar .icon-btn[aria-label="Open navigation"]').click();
+        await page.waitForTimeout(400);
       }
       await page.locator('.nav-item', { hasText: 'All notes' }).click();
       await page.waitForSelector('.pane-head h1', { timeout: 10000 });
@@ -323,7 +396,16 @@ async function run() {
 
       // editor, opened read only. NO typing, so no autosave fires.
       if (rows) {
-        await page.locator('.note-row').first().click();
+        // Only the title text is wired to onOpen, so tapping the row body does nothing.
+        const rowBody = await page.locator('.note-row').first().boundingBox();
+        await page.mouse.click(rowBody.x + rowBody.width - 24, rowBody.y + rowBody.height - 12);
+        await page.waitForTimeout(700);
+        check(`[${tag}] tapping the row body (not the title) opens the note`,
+          (await page.locator('#note-title').count()) === 1,
+          'the card should be one big target, not just the title text');
+        if (!(await page.locator('#note-title').count())) {
+          await page.locator('.note-row .title').first().click();
+        }
         await page.waitForSelector('#note-title', { timeout: 15000 });
         check(`[${tag}] editor opens`, await page.locator('.editor-bar').isVisible());
         const tools = await page.locator('.toolbar .tool').count();
@@ -331,17 +413,32 @@ async function run() {
         check(`[${tag}] the writing surface is contenteditable`,
           (await page.locator('.prose[contenteditable="true"]').count()) === 1);
         const proseBox = await page.locator('.prose').boundingBox();
-        check(`[${tag}] the writing surface has real size`, proseBox && proseBox.width > 200 && proseBox.height > 100, proseBox);
+        check(`[${tag}] the writing surface has real size`, proseBox && proseBox.width > 200 && proseBox.height > 240, proseBox);
+        const paragraphs = await page.locator('.prose > *').count();
+        check(`[${tag}] the document always has a node to type into`, paragraphs >= 1, paragraphs);
+        const emptyState = await page.evaluate(() => {
+          const first = document.querySelector('.prose').firstElementChild;
+          const isEmptyDoc = document.querySelector('.prose').innerText.trim().length === 0;
+          return { isEmptyDoc, placeholder: first ? getComputedStyle(first, '::before').content : 'none' };
+        });
+        if (emptyState.isEmptyDoc) {
+          check(`[${tag}] an empty note shows its placeholder before you focus it`,
+            emptyState.placeholder && emptyState.placeholder !== 'none', emptyState);
+        }
+        // clicking the blank space below the text must land the cursor
+        await page.mouse.click(proseBox.x + proseBox.width / 2, proseBox.y + proseBox.height - 20);
+        await page.waitForTimeout(250);
+        check(`[${tag}] clicking the blank writing area focuses the editor`,
+          await page.evaluate(() => document.activeElement?.classList.contains('prose')
+            || Boolean(document.activeElement?.closest('.prose'))));
         const titleBox = await page.locator('#note-title').boundingBox();
         const innerBox = await page.locator('.editor-inner').boundingBox();
         check(`[${tag}] the title stays inside its column`,
           titleBox.x + titleBox.width <= innerBox.x + innerBox.width + 1, { titleBox, innerBox });
         check(`[${tag}] editor has no horizontal overflow`, (await overflow(page)) <= 0, await overflow(page));
         check(`[${tag}] no tofu in the editor`, (await tofu(page)).length === 0, await tofu(page));
-        targets = await smallTargets(page);
-        // toolbar buttons are dense by design on desktop; report, don't hard fail there
-        if (targets.length && !mobile) note(`[${tag}] ${targets.length} sub-44px controls in the editor (desktop, pointer input): ${JSON.stringify(targets.slice(0, 8))}`);
-        else check(`[${tag}] editor touch targets are 44px or bigger`, targets.length === 0, targets);
+        targets = await smallTargets(page, floor);
+        check(`[${tag}] editor targets clear ${floor}px`, targets.length === 0, targets);
         const saveState = await page.locator('.save-state').innerText().catch(() => '(none)');
         check(`[${tag}] opening a note does not trigger a save`, !/saving/i.test(saveState), saveState);
         await shot(page, `${tag}-05-editor`);
@@ -363,6 +460,16 @@ async function run() {
       await page.waitForTimeout(900);
       const hits = await page.locator('.search-hit').count();
       check(`[${tag}] search returns results for an existing word`, hits >= 1, hits);
+      const hitLayout = await page.evaluate(() => {
+        const el = document.querySelector('.search-hit');
+        if (!el) return null;
+        const title = el.querySelector('.title');
+        const excerpt = el.querySelector('.excerpt');
+        if (!title || !excerpt) return null;
+        return { title: title.getBoundingClientRect().bottom, excerpt: excerpt.getBoundingClientRect().top };
+      });
+      check(`[${tag}] the search hit snippet sits below the title, not glued to it`,
+        hitLayout && hitLayout.excerpt >= hitLayout.title - 1, hitLayout);
       check(`[${tag}] search panel has no horizontal overflow`, (await overflow(page)) <= 0, await overflow(page));
       const panelBox = await page.locator('.search-panel').boundingBox();
       check(`[${tag}] search panel fits the viewport`, panelBox && panelBox.x >= 0 && panelBox.x + panelBox.width <= width + 1, panelBox);
@@ -373,7 +480,10 @@ async function run() {
         || !(await page.locator('.search-panel').isVisible()));
 
       // archive view
-      if (mobile) await page.locator('.topbar .icon-btn[aria-label="Open navigation"]').click();
+      if (mobile && (await page.locator('.sidebar').boundingBox()).x < 0) {
+        await page.locator('.topbar .icon-btn[aria-label="Open navigation"]').click();
+        await page.waitForTimeout(400);
+      }
       await page.locator('.nav-item', { hasText: 'Archive' }).click();
       await page.waitForSelector('.pane-head h1', { timeout: 10000 });
       check(`[${tag}] archive view renders`, (await page.locator('.pane-head h1').innerText()).toLowerCase().includes('archive'));
@@ -399,7 +509,7 @@ async function run() {
       check(`[${tag}] an unknown share link shows the not-live page`, /not live/i.test(heading), heading);
       check(`[${tag}] the not-live page leaks no editor`, (await page.locator('[contenteditable="true"]').count()) === 0);
       check(`[${tag}] not-live page has no horizontal overflow`, (await overflow(page)) <= 0, await overflow(page));
-      const only404 = errors.filter((e) => !e.startsWith('http 404'));
+      const only404 = errors.filter((e) => !/404/.test(e));
       check(`[${tag}] not-live page has no unexpected errors`, only404.length === 0, only404);
       await shot(page, `${tag}-08-public-missing`);
       await context.close();

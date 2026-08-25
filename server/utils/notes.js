@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { z } from 'zod';
 
-export const EMPTY_DOC = { type: 'doc', content: [] };
+export const EMPTY_DOC = { type: 'doc', content: [{ type: 'paragraph' }] };
 
 const MAX_NODES = 20000;
 const MAX_DEPTH = 24;

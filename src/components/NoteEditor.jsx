@@ -51,7 +51,7 @@ export default function NoteEditor({ note, folders, onMetaChange, onArchived, on
   }, [flush]);
 
   const editor = useEditor({
-    extensions: buildExtensions({ placeholder: 'Start writing. Cmd or Ctrl plus B, I, and the toolbar do the rest.' }),
+    extensions: buildExtensions({ placeholder: 'Start writing.' }),
     content: safeContent(note.content),
     editorProps: { attributes: { class: 'prose', spellcheck: 'true' } },
     onUpdate: ({ editor: instance }) => queue({ content: instance.getJSON() }),
@@ -170,8 +170,8 @@ export default function NoteEditor({ note, folders, onMetaChange, onArchived, on
 
         <span className="spacer" />
 
-        <span className="save-state" data-state={saveState} aria-live="polite">
-          <span className="save-dot" />{SAVE_LABEL[saveState]}
+        <span className="save-state" data-state={saveState} aria-live="polite" title={SAVE_LABEL[saveState]}>
+          <span className="save-dot" /><span className="save-text">{SAVE_LABEL[saveState]}</span>
         </span>
 
         {meta.is_archived ? (
@@ -210,7 +210,16 @@ export default function NoteEditor({ note, folders, onMetaChange, onArchived, on
         <button className="tool" type="button" onMouseDown={keepFocus} onClick={run((c) => c.redo())} disabled={!can('redo')} aria-label="Redo" title="Redo"><IconRedo /></button>
       </div>
 
-      <div className="editor-body">
+      {/* Clicking the empty space under the text should put the cursor at the end,
+          the way every native notes app behaves. */}
+      <div
+        className="editor-body"
+        onMouseDown={(event) => {
+          if (event.target !== event.currentTarget && !event.target.classList?.contains('editor-inner')) return;
+          event.preventDefault();
+          editor?.commands.focus('end');
+        }}
+      >
         <div className="editor-inner">
           <label className="sr-only" htmlFor="note-title">Note title</label>
           <textarea

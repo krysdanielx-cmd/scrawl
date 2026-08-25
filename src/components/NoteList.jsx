@@ -18,15 +18,16 @@ export function NoteListSkeleton({ rows = 4 }) {
 export function NoteRow({ note, folderName, onOpen, onRestore }) {
   return (
     <div className="note-row">
+      {/* The whole card is the target. This sits above the text so a tap anywhere
+          opens the note; the Restore rail sits above it again. */}
+      <button
+        className="row-hit"
+        type="button"
+        onClick={() => onOpen(note.id)}
+        aria-label={`Open ${noteTitle(note)}`}
+      />
       <div className="body">
-        <button
-          className="title"
-          type="button"
-          onClick={() => onOpen(note.id)}
-          style={{ display: 'block', width: '100%', textAlign: 'left' }}
-        >
-          {noteTitle(note)}
-        </button>
+        <h3 className="title">{noteTitle(note)}</h3>
         {note.snippet && <p className="excerpt clamp-2">{note.snippet}</p>}
         <div className="row-meta">
           <span>{relativeTime(note.updated_at)}</span>
