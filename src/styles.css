@@ -67,6 +67,7 @@
   --body: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
 
   --sidebar-w: 268px;
+  --sidebar-collapsed-w: 60px;
   --rail-h: 60px;
 
   color-scheme: light;
@@ -318,7 +319,8 @@ button:disabled { cursor: not-allowed; }
    workspace shell
    ============================================================ */
 
-.shell { min-height: 100dvh; display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); background: var(--paper); }
+.shell { min-height: 100dvh; display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); background: var(--paper); transition: grid-template-columns .2s ease; }
+.shell[data-collapsed='true'] { grid-template-columns: var(--sidebar-collapsed-w) minmax(0, 1fr); }
 
 .sidebar {
   position: sticky; top: 0; align-self: start;
@@ -326,7 +328,69 @@ button:disabled { cursor: not-allowed; }
   padding: 26px 18px max(20px, env(safe-area-inset-bottom));
   border-right: 1px solid var(--line);
   background: var(--paper);
+  transition: width .2s ease, padding .2s ease;
+  overflow: hidden;
 }
+
+/* Collapsed sidebar */
+.sidebar[data-collapsed='true'] {
+  width: var(--sidebar-collapsed-w);
+  padding: 26px 8px max(20px, env(safe-area-inset-bottom));
+}
+.sidebar[data-collapsed='true'] .brand-name,
+.sidebar[data-collapsed='true'] .nav-text,
+.sidebar[data-collapsed='true'] .nav-count,
+.sidebar[data-collapsed='true'] .side-label,
+.sidebar[data-collapsed='true'] .nav-tools,
+.sidebar[data-collapsed='true'] .who,
+.sidebar[data-collapsed='true'] .theme-toggle,
+.sidebar[data-collapsed='true'] .nav-item-compact { display: none; }
+.sidebar[data-collapsed='true'] .brand { justify-content: center; padding: 0; }
+.sidebar[data-collapsed='true'] .nav-item { justify-content: center; padding: 0; width: 44px; height: 44px; min-height: 44px; }
+.sidebar[data-collapsed='true'] .nav-row { justify-content: center; }
+.sidebar[data-collapsed='true'] .side-foot { padding-top: 8px; }
+
+/* Collapse toggle button */
+.sidebar-toggle {
+  position: absolute;
+  right: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 48px;
+  border-radius: 0 8px 8px 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: none;
+  color: var(--faint);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .15s, color .15s;
+  z-index: 10;
+}
+.sidebar:hover .sidebar-toggle,
+.sidebar-toggle:focus { opacity: 1; }
+.sidebar-toggle:hover { color: var(--cobalt); background: var(--cobalt-soft); }
+.sidebar[data-collapsed='true'] .sidebar-toggle { right: -12px; opacity: 1; }
+
+/* Resize handle */
+.sidebar-resize {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  transition: background .15s;
+  z-index: 5;
+}
+.sidebar-resize:hover,
+.sidebar-resize.dragging { background: var(--cobalt); }
+.sidebar[data-collapsed='true'] .sidebar-resize { display: none; }
 .brand { display: flex; align-items: center; gap: 10px; padding: 0 8px; margin-bottom: 22px; }
 .brand-name { font-family: var(--display); font-size: 1.5rem; font-weight: 600; letter-spacing: -.035em; }
 .side-scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; padding-bottom: 8px; }

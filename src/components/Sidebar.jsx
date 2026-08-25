@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { IconArchive, IconFolder, IconPencil, IconPlus, IconSignOut, IconStack, IconTrash } from '../lib/icons.jsx';
 
 function ThemeToggle() {
@@ -29,11 +29,71 @@ export default function Sidebar({
   open, folders, totals, recent, view, email,
   onSelect, onNewFolder, onRenameFolder, onDeleteFolder, onOpenNote, onSignOut,
 }) {
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('scrawl-sidebar-collapsed') === 'true');
+  const [width, setWidth] = useState(() => parseInt(localStorage.getItem('scrawl-sidebar-width') || '268', 10));
+  const [isDragging, setIsDragging] = useState(false);
+  const sidebarRef = useRef(null);
+  
   const isOn = (type, folderId) =>
     view.type === type && (type !== 'folder' || view.folderId === folderId);
 
+  // Update CSS variable and localStorage when width changes
+  useEffect(() => {
+    if (!collapsed) {
+      document.documentElement.style.setProperty('--sidebar-w', `${width}px`);
+      localStorage.setItem('scrawl-sidebar-width', String(width));
+    }
+  }, [width, collapsed]);
+
+  // Update collapsed state
+  useEffect(() => {
+    localStorage.setItem('scrawl-sidebar-collapsed', String(collapsed));
+    const shell = document.querySelector('.shell');
+    if (shell) shell.setAttribute('data-collapsed', String(collapsed));
+  }, [collapsed]);
+
+  // Handle resize drag
+  const handleMouseDown = useCallback((e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e) => {
+      const newWidth = Math.min(Math.max(200, e.clientX), 400);
+      setWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isDragging]);
+
+  const toggleCollapse = () => setCollapsed(!collapsed);
+
   return (
-    <aside className="sidebar" data-open={open ? 'true' : 'false'} aria-label="Notes navigation">
+    <aside 
+      ref={sidebarRef}
+      className="sidebar" 
+      data-open={open ? 'true' : 'false'} 
+      data-collapsed={collapsed ? 'true' : 'false'}
+      aria-label="Notes navigation"
+      style={!collapsed ? { width } : undefined}
+    >
       <div className="brand">
         <span className="mark" style={{ width: 30, height: 30, borderRadius: 9, fontSize: 17 }} aria-hidden="true">S</span>
         <span className="brand-name">Scrawl<span className="dot">.</span></span>
@@ -55,8 +115,6 @@ export default function Sidebar({
           <button type="button" onClick={onNewFolder} aria-label="New folder" title="New folder"><IconPlus width={14} height={14} /></button>
         </p>
 
-        {/* A nav item cannot contain the rename/delete buttons (nested buttons are
-            invalid), so the row is a wrapper with the controls as siblings. */}
         {folders.map((folder) => (
           <div className="nav-row" key={folder.id}>
             <button
@@ -132,6 +190,23 @@ export default function Sidebar({
           <span className="nav-text">Sign out</span>
         </button>
       </div>
+
+      {/* Collapse toggle */}
+      <button 
+        className="sidebar-toggle" 
+        type="button" 
+        onClick={toggleCollapse}
+        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        title={collapsed ? 'Expand' : 'Collapse'}
+      >
+        {collapsed ? '›' : '‹'}
+      </button>
+
+      {/* Resize handle */}
+      <div 
+        className={`sidebar-resize ${isDragging ? 'dragging' : ''}`}
+        onMouseDown={handleMouseDown}
+      />
     </aside>
   );
 }
