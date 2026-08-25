@@ -59,6 +59,10 @@ export default function NoteEditor({ note, folders, onMetaChange, onArchived, on
     editorProps: {
       attributes: { class: 'prose', spellcheck: 'true' },
       transformPastedHTML,
+      handlePaste: (view, event) => {
+        console.log('[scrawl] paste event, types:', event.clipboardData?.types);
+        return false; // let default handling continue
+      },
     },
     onUpdate: ({ editor: instance }) => queue({ content: instance.getJSON() }),
   }, [note.id]);
