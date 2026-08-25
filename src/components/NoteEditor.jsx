@@ -15,7 +15,6 @@ const AUTOSAVE_MS = 500;
 const SAVE_LABEL = { idle: 'All changes saved', saving: 'Saving', saved: 'Saved', error: 'Not saved' };
 
 export default function NoteEditor({ note, folders, onMetaChange, onArchived, onDelete, onBack, onToast }) {
-  console.log('[scrawl] NoteEditor mounted/updated, note.id:', note.id, 'note.content:', JSON.stringify(note.content)?.slice(0, 200));
   const [title, setTitle] = useState(note.title || '');
   const [meta, setMeta] = useState(note);
   const [saveState, setSaveState] = useState('idle');
