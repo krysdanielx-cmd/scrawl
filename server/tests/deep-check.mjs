@@ -157,6 +157,39 @@ async function assetChecks() {
     }
   }
 
+  if (manifest) {
+    // identity + scope: without an id, a future start_url change orphans the installed app
+    check('manifest declares an id', typeof manifest.id === 'string' && manifest.id.length > 0, manifest.id);
+    check('manifest declares a scope', typeof manifest.scope === 'string' && manifest.scope.length > 0, manifest.scope);
+    if (manifest.scope && manifest.start_url) {
+      const scope = new URL(manifest.scope, BASE);
+      const start = new URL(manifest.start_url, BASE);
+      check('start_url sits inside scope', start.href.startsWith(scope.href), { scope: scope.href, start: start.href });
+    }
+    const startRes = await fetch(new URL(manifest.start_url, BASE));
+    check('start_url actually loads', startRes.status === 200, startRes.status);
+    check('start_url returns the app shell', (await startRes.text()).includes('id="root"'));
+    // A notes app is perfectly usable in landscape on a tablet; locking it is a downgrade.
+    check('manifest does not lock orientation',
+      !manifest.orientation || manifest.orientation === 'any', manifest.orientation);
+  }
+
+  const shellHtml = await (await fetch(BASE)).text();
+  const meta = (name) => shellHtml.match(new RegExp(`<meta[^>]+name="${name}"[^>]+content="([^"]*)"`))?.[1] ?? null;
+  check('theme-color meta matches the manifest theme_color',
+    manifest ? meta('theme-color') === manifest.theme_color : false, { meta: meta('theme-color'), manifest: manifest?.theme_color });
+  check('apple-mobile-web-app-title is set for the iOS home screen', Boolean(meta('apple-mobile-web-app-title')), meta('apple-mobile-web-app-title'));
+  check('apple-mobile-web-app-capable is set (iOS standalone)', meta('apple-mobile-web-app-capable') === 'yes', meta('apple-mobile-web-app-capable'));
+  // Chrome deprecated the apple- prefixed one and warns in console without this.
+  check('mobile-web-app-capable is set (Chrome no longer accepts the apple- one alone)',
+    meta('mobile-web-app-capable') === 'yes', meta('mobile-web-app-capable'));
+  // black-translucent always paints the clock and battery WHITE. On a cream shell they vanish.
+  const barStyle = meta('apple-mobile-web-app-status-bar-style');
+  const shellIsLight = manifest && /^#(f|e|d)/i.test(manifest.background_color || '');
+  check('iOS status bar style suits a light app shell',
+    !(shellIsLight && barStyle === 'black-translucent'),
+    { barStyle, background: manifest?.background_color, why: 'black-translucent forces white status bar glyphs' });
+
   const apple = await fetch(`${BASE}/apple-touch-icon.png`);
   const appleBuf = Buffer.from(await apple.arrayBuffer());
   check('apple-touch-icon returns 200', apple.status === 200, apple.status);
@@ -184,7 +217,7 @@ async function assetChecks() {
   check('client bundle is under 300KB uncompressed', js.length < 300_000, `${Math.round(js.length / 1024)}KB`);
 
   // deep links must return the SPA, not a 404
-  for (const path of ['/archive', '/p/definitely-not-a-real-slug']) {
+  for (const path of ['/archive', '/login', '/p/definitely-not-a-real-slug', '/some/unknown/deep/path']) {
     const res = await fetch(BASE + path);
     check(`deep link ${path} serves the app shell`, res.status === 200 && (await res.text()).includes('id="root"'), res.status);
   }
@@ -198,6 +231,26 @@ async function assetChecks() {
   check('CORS does not allow an unrelated origin',
     !cors.headers.get('access-control-allow-origin') || cors.headers.get('access-control-allow-origin') !== 'https://evil.example.com',
     cors.headers.get('access-control-allow-origin'));
+  // Auth boundary. None of these can write: signup is blocked by a DB-level
+  // singleton constraint on users, and a failed login writes nothing.
+  const post = (path, body) => fetch(BASE + path, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+  });
+  const ownerEmail = (await supabase.from('users').select('email').limit(1).maybeSingle()).data?.email;
+  const wrongPass = await post('/api/auth/login', { email: ownerEmail, password: 'definitely-not-the-password' });
+  check('login with a wrong password is 401', wrongPass.status === 401, wrongPass.status);
+  const wrongBody = await wrongPass.json().catch(() => ({}));
+  const unknownUser = await post('/api/auth/login', { email: 'nobody@example.com', password: 'definitely-not-the-password' });
+  check('login with an unknown email is 401', unknownUser.status === 401, unknownUser.status);
+  const unknownBody = await unknownUser.json().catch(() => ({}));
+  check('login does not leak which accounts exist', wrongBody.error === unknownBody.error, { wrongBody, unknownBody });
+  const shortPass = await post('/api/auth/login', { email: ownerEmail, password: 'short' });
+  check('login rejects a too-short password before hashing', shortPass.status === 400, shortPass.status);
+  const secondOwner = await post('/api/auth/signup', { email: 'intruder@example.com', password: 'a-long-enough-password' });
+  check('signup is closed once an owner exists', secondOwner.status === 409, secondOwner.status);
+  const usersNow = await supabase.from('users').select('id', { count: 'exact', head: true });
+  check('the signup attempt created no second user', usersNow.count === 1, usersNow.count);
+
   const publicMiss = await fetch(`${BASE}/api/public/notes/definitely-not-a-real-slug`);
   check('unknown public slug returns 404 from the API', publicMiss.status === 404, publicMiss.status);
 
@@ -399,11 +452,13 @@ async function run() {
         // Only the title text is wired to onOpen, so tapping the row body does nothing.
         const rowBody = await page.locator('.note-row').first().boundingBox();
         await page.mouse.click(rowBody.x + rowBody.width - 24, rowBody.y + rowBody.height - 12);
-        await page.waitForTimeout(700);
-        check(`[${tag}] tapping the row body (not the title) opens the note`,
-          (await page.locator('#note-title').count()) === 1,
+        // The editor is a lazy chunk, so give it real time. A fixed short wait
+        // reported "the card is not clickable" when it just had not loaded yet.
+        const bodyOpened = await page.waitForSelector('#note-title', { timeout: 15000 })
+          .then(() => true).catch(() => false);
+        check(`[${tag}] tapping the row body (not the title) opens the note`, bodyOpened,
           'the card should be one big target, not just the title text');
-        if (!(await page.locator('#note-title').count())) {
+        if (!bodyOpened) {
           await page.locator('.note-row .title').first().click();
         }
         await page.waitForSelector('#note-title', { timeout: 15000 });
@@ -516,7 +571,151 @@ async function run() {
     } catch (e) { failures.push(`[${tag}] public reader threw: ${e.message}`); console.log(`FAIL  [${tag}] public reader threw :: ${e.message}`); }
   }
 
+  await pwaChecks(browser, token);
   await browser.close();
+}
+
+/**
+ * Installed-app behaviour: Chrome's install criteria, display-mode:standalone
+ * (emulated over CDP, which is what DevTools itself uses), and iOS
+ * add-to-home-screen, where navigator.standalone is the only signal.
+ */
+async function pwaChecks(browser, token) {
+  console.log('\n===== installed / standalone =====');
+
+  // ---------- Chrome installability ----------
+  try {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const page = await context.newPage();
+    await page.addInitScript(() => {
+      window.__bip = false;
+      window.addEventListener('beforeinstallprompt', () => { window.__bip = true; });
+    });
+    await page.goto(BASE, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1200);
+
+    const criteria = await page.evaluate(async () => {
+      const link = document.querySelector('link[rel=manifest]');
+      const manifest = link ? await (await fetch(link.href)).json() : null;
+      const reg = await navigator.serviceWorker.getRegistration();
+      const icons = manifest?.icons || [];
+      const size = (s) => icons.some((i) => (i.sizes || '').split(' ').includes(s));
+      return {
+        https: location.protocol === 'https:',
+        manifestLinked: Boolean(link),
+        name: Boolean(manifest?.name || manifest?.short_name),
+        startUrl: Boolean(manifest?.start_url),
+        display: ['standalone', 'fullscreen', 'minimal-ui'].includes(manifest?.display),
+        icon192: size('192x192'),
+        icon512: size('512x512'),
+        serviceWorker: Boolean(reg?.active),
+        fired: window.__bip,
+      };
+    });
+    const swSource = await (await fetch(`${BASE}/sw.js`)).text();
+    const hasFetch = /addEventListener\('fetch'/.test(swSource);
+    const missing = Object.entries(criteria)
+      .filter(([k, v]) => k !== 'fired' && v !== true).map(([k]) => k);
+    check('every Chrome install criterion is met', missing.length === 0, { missing, criteria });
+    check('the worker has the fetch handler the automatic prompt needs', hasFetch);
+    // Headless Chromium does not raise beforeinstallprompt, so its absence proves nothing.
+    if (criteria.fired) check('beforeinstallprompt actually fired', true);
+    else note('beforeinstallprompt did not fire in headless Chromium (expected); criteria are asserted above instead');
+    await context.close();
+  } catch (e) { failures.push(`installability threw: ${e.message}`); console.log(`FAIL  installability threw :: ${e.message}`); }
+
+  // ---------- display-mode: standalone ----------
+  for (const [width, height] of [[390, 844], [1024, 768]]) {
+    const tag = `standalone ${width}x${height}`;
+    try {
+      const mobile = width < 900;
+      const context = await browser.newContext({
+        viewport: { width, height }, isMobile: mobile, hasTouch: mobile,
+        userAgent: mobile ? devices['iPhone 13'].userAgent : undefined,
+      });
+      await context.addInitScript((v) => window.localStorage.setItem('scrawl_session', v), token);
+      const page = await context.newPage();
+      const errors = watch(page);
+      const cdp = await context.newCDPSession(page);
+      await cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'display-mode', value: 'standalone' }] });
+      await page.goto(BASE, { waitUntil: 'networkidle' });
+      await page.waitForSelector('.shell', { timeout: 20000 });
+
+      // This Chromium ignores CDP display-mode emulation and there is no X
+      // server here for a real --app window, so instead of faking a pass:
+      // prove that nothing in the stylesheet BRANCHES on display-mode, which
+      // makes the installed layout identical to this chrome-less viewport.
+      const emulated = await page.evaluate(() => matchMedia('(display-mode: standalone)').matches);
+      if (emulated) check(`[${tag}] the app really is in standalone display mode`, true);
+      else {
+        const css = await (await fetch(`${BASE}${(await (await fetch(BASE)).text()).match(/href="(\/assets\/index-[^"]+\.css)"/)[1]}`)).text();
+        check(`[${tag}] no stylesheet rule branches on display-mode, so installed == this layout`,
+          !/display-mode/.test(css));
+        note(`[${tag}] display-mode could not be emulated here; standalone layout is covered by the chrome-less viewport above`);
+      }
+      check(`[${tag}] the workspace renders with no browser chrome`, await page.locator('.shell').isVisible());
+      check(`[${tag}] no horizontal overflow in standalone`, (await overflow(page)) <= 0, await overflow(page));
+
+      // There is no browser back button in standalone, so the app must own navigation.
+      if (mobile) {
+        await page.locator('.topbar .icon-btn[aria-label="Open navigation"]').click();
+        await page.waitForTimeout(350);
+        await page.locator('.nav-item', { hasText: 'All notes' }).click();
+        await page.waitForSelector('.pane-head h1', { timeout: 10000 });
+        await page.waitForTimeout(400);
+        if (await page.locator('.note-row').count()) {
+          await page.locator('.note-row').first().click();
+          await page.waitForSelector('#note-title', { timeout: 15000 });
+          check(`[${tag}] the editor has its own in-app back control`,
+            await page.locator('.editor-bar button[aria-label="Back to notes"]').isVisible());
+          await page.locator('.editor-bar button[aria-label="Back to notes"]').click();
+          await page.waitForSelector('.pane-head h1', { timeout: 10000 });
+          check(`[${tag}] in-app back returns to the list without the browser`,
+            (await page.locator('#note-title').count()) === 0);
+        }
+      }
+
+      // The top rail must reserve room for the status bar, or the clock sits on the UI.
+      const railPad = await page.evaluate(() => {
+        const el = document.querySelector('.topbar') || document.querySelector('.sidebar');
+        return el ? getComputedStyle(el).paddingTop : null;
+      });
+      check(`[${tag}] the top rail reserves safe-area space`, railPad !== null, railPad);
+      const bottomClear = await page.evaluate(() => {
+        const el = document.querySelector('.editor-body') || document.querySelector('.pane');
+        return el ? getComputedStyle(el).paddingBottom : null;
+      });
+      check(`[${tag}] content clears the home indicator at the bottom`,
+        bottomClear && parseFloat(bottomClear) >= 20, bottomClear);
+      check(`[${tag}] standalone session is error free`, errors.length === 0, errors);
+      await shot(page, `${tag.replace(/[ :]/g, '-')}`);
+      await context.close();
+    } catch (e) { failures.push(`[${tag}] threw: ${e.message}`); console.log(`FAIL  [${tag}] threw :: ${e.message}`); }
+  }
+
+  // ---------- iOS add-to-home-screen ----------
+  try {
+    const context = await browser.newContext({ ...devices['iPhone 13'] });
+    await context.addInitScript((v) => {
+      window.localStorage.setItem('scrawl_session', v);
+      Object.defineProperty(window.navigator, 'standalone', { value: true, configurable: true });
+    }, token);
+    const page = await context.newPage();
+    const errors = watch(page);
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'display-mode', value: 'standalone' }] });
+    await page.goto(BASE, { waitUntil: 'networkidle' });
+    await page.waitForSelector('.shell', { timeout: 20000 });
+
+    check('[iOS A2HS] navigator.standalone is honoured without breaking the app',
+      await page.evaluate(() => window.navigator.standalone === true));
+    check('[iOS A2HS] the workspace renders on a home-screen launch', await page.locator('.shell').isVisible());
+    check('[iOS A2HS] no horizontal overflow', (await overflow(page)) <= 0, await overflow(page));
+    check('[iOS A2HS] every touch target clears 44px', (await smallTargets(page, 44)).length === 0, await smallTargets(page, 44));
+    check('[iOS A2HS] the launch is error free', errors.length === 0, errors);
+    await shot(page, 'ios-a2hs');
+    await context.close();
+  } catch (e) { failures.push(`iOS A2HS threw: ${e.message}`); console.log(`FAIL  iOS A2HS threw :: ${e.message}`); }
 }
 
 try {

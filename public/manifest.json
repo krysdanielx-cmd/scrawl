@@ -1,12 +1,13 @@
 {
+  "id": "/",
   "name": "Scrawl",
   "short_name": "Scrawl",
   "description": "Personal notes with folders, rich text, and quick capture",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#f7f6f4",
   "theme_color": "#0047AB",
-  "orientation": "portrait-primary",
   "icons": [
     {
       "src": "/icon-192.png",

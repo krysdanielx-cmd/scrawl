@@ -46,6 +46,11 @@
   --cobalt-mid: #4d7cc7;
   --cobalt-soft: #e6f0ff;
   --cobalt-pale: #c3d6f5;
+  /* Destructive actions. Warm brick, not a pure alarm red, so it belongs on the
+     paper palette while still reading as "this one is different". */
+  --danger: #a5271d;
+  --danger-deep: #852017;
+  --danger-soft: #fbeceb;
 
   --clay: #a94f1b;
   --clay-wash: #fdf0e8;
@@ -142,6 +147,11 @@ button:disabled { cursor: not-allowed; }
 .btn-quiet { color: var(--muted); }
 .btn-quiet:hover:not(:disabled) { color: var(--ink); background: var(--paper-2); }
 .btn-sm { min-height: 34px; padding: 0 .8rem; font-size: .8125rem; }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger:hover:not(:disabled) { background: var(--danger-deep); }
+.btn-danger:disabled { background: var(--line-2); color: var(--faint); }
+.btn-ghost-danger { color: var(--danger); border-color: var(--line-2); }
+.btn-ghost-danger:hover:not(:disabled) { border-color: var(--danger); background: var(--danger-soft); }
 
 .icon-btn {
   display: inline-grid; place-items: center;
@@ -150,6 +160,13 @@ button:disabled { cursor: not-allowed; }
   transition: background .16s ease, color .16s ease;
 }
 .icon-btn:hover:not(:disabled) { background: var(--paper-2); color: var(--ink); }
+.icon-btn-danger { margin-left: 6px; }
+.icon-btn-danger:hover:not(:disabled) { background: var(--danger-soft); color: var(--danger); }
+/* No hover on a phone, so the destructive button has to look destructive at
+   rest, otherwise it reads as just another grey icon next to Archive. */
+@media (hover: none) {
+  .icon-btn-danger { color: var(--danger); opacity: .78; }
+}
 .icon-btn[data-on='true'] { background: var(--cobalt-soft); color: var(--cobalt-deep); }
 
 .field {
@@ -258,6 +275,22 @@ button:disabled { cursor: not-allowed; }
 }
 .side-label button { color: var(--faint); display: grid; place-items: center; width: 26px; height: 26px; margin: -3px -4px -3px 0; border-radius: 7px; }
 .side-label button:hover { background: var(--paper-2); color: var(--cobalt); }
+
+/* A folder row: the nav button plus its rename/delete tools as siblings,
+   because a button cannot legally contain other buttons. */
+.nav-row { display: flex; align-items: center; gap: 2px; }
+.nav-row .nav-item { flex: 1; min-width: 0; }
+.nav-tools { display: flex; gap: 2px; flex: none; opacity: 0; transition: opacity .14s ease; }
+.nav-row:hover .nav-tools, .nav-row:focus-within .nav-tools { opacity: 1; }
+.nav-tool {
+  display: grid; place-items: center;
+  width: 28px; height: 28px; border-radius: 8px;
+  color: var(--faint);
+}
+.nav-tool:hover { background: var(--paper-2); color: var(--cobalt); }
+.nav-tool-danger:hover { background: var(--danger-soft); color: var(--danger); }
+/* No hover on a touch screen, so the tools have to be permanently visible. */
+@media (hover: none) { .nav-tools { opacity: 1; } }
 
 .nav-item {
   display: flex; align-items: center; gap: 10px;
@@ -485,8 +518,10 @@ button:disabled { cursor: not-allowed; }
 
 /* ---------- search overlay ---------- */
 
+/* Above the mobile nav drawer (70) and its scrim (65). A dialog opened from
+   the sidebar sat UNDER the scrim, so every button in it was unclickable. */
 .overlay {
-  position: fixed; inset: 0; z-index: 60;
+  position: fixed; inset: 0; z-index: 90;
   display: grid; align-items: start; justify-items: center;
   padding: max(56px, env(safe-area-inset-top)) 16px 24px;
   background: rgba(33, 32, 30, .34);
@@ -518,7 +553,7 @@ button:disabled { cursor: not-allowed; }
 
 .toast {
   position: fixed; left: 50%; transform: translateX(-50%);
-  bottom: max(22px, env(safe-area-inset-bottom)); z-index: 80;
+  bottom: max(22px, env(safe-area-inset-bottom)); z-index: 85;
   display: flex; align-items: center; gap: 8px;
   padding: 10px 16px; border-radius: 999px;
   background: var(--ink); color: #fff; font-size: .8125rem; font-weight: 600;
@@ -581,6 +616,7 @@ button:disabled { cursor: not-allowed; }
   .icon-btn { width: 44px; height: 44px; }
   .nav-item { min-height: 44px; }
   .side-label button { width: 44px; height: 44px; margin: -11px -10px -11px 0; }
+  .nav-tool { width: 44px; height: 44px; }
   .btn { min-height: 44px; }
   .btn-sm { min-height: 44px; }
   .auth-form .btn-primary { min-height: 48px; }
@@ -591,7 +627,14 @@ button:disabled { cursor: not-allowed; }
   .toolbar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
   .toolbar::-webkit-scrollbar { display: none; }
   .tool { min-width: 44px; height: 44px; flex: none; }
-  .editor-bar { flex-wrap: nowrap; }
+  /* Six 44px controls plus the folder select do not fit 390px unless the
+     buttons refuse to shrink and the select gives up the slack. Without
+     flex:none they were quietly squeezed to 39px wide. */
+  .editor-bar { flex-wrap: nowrap; gap: 4px; }
+  .editor-bar .icon-btn,
+  .editor-bar .btn { flex: none; }
+  .editor-bar .select { flex: 1 1 auto; min-width: 0; width: auto; padding-right: 1.7rem; padding-left: .6rem; }
+  .editor-bar .save-state { flex: none; }
   .save-text {
     position: absolute; width: 1px; height: 1px; margin: -1px;
     overflow: hidden; clip-path: inset(50%); white-space: nowrap;

@@ -208,20 +208,23 @@ router.patch('/:id', async (req, res, next) => {
   }
 });
 
-/** Archive, never hard delete. Restore with PATCH { is_archived: false }. */
+/**
+ * Destructive. The row is gone and its attachments cascade with it; there is no
+ * undo. Archiving is a PATCH of is_archived, deliberately a different verb.
+ */
 router.delete('/:id', async (req, res, next) => {
   try {
     const id = uuidSchema.parse(req.params.id);
     const { data: note, error } = await supabase
       .from('notes')
-      .update({ is_archived: true, is_published: false, public_slug: null })
+      .delete()
       .eq('id', id)
       .eq('user_id', req.user.id)
-      .select(META)
+      .select('id')
       .maybeSingle();
     if (error) throw error;
     if (!note) return res.status(404).json({ error: 'Note not found.' });
-    return res.json({ note });
+    return res.json({ ok: true, id });
   } catch (error) {
     return next(error);
   }

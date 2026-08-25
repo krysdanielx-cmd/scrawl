@@ -5,7 +5,7 @@
  * belong in Postgres, not in a cache a shared device could read.
  * Bump VERSION whenever the shell contract changes.
  */
-const VERSION = 'v2';
+const VERSION = 'v3';
 const SHELL = `scrawl-shell-${VERSION}`;
 const ASSETS = `scrawl-assets-${VERSION}`;
 const SHELL_URLS = [

@@ -1,5 +1,5 @@
 import { noteTitle, relativeTime } from '../lib/format.js';
-import { IconPin, IconRestore, IconShare } from '../lib/icons.jsx';
+import { IconPin, IconRestore, IconShare, IconTrash } from '../lib/icons.jsx';
 
 export function NoteListSkeleton({ rows = 4 }) {
   return (
@@ -15,7 +15,7 @@ export function NoteListSkeleton({ rows = 4 }) {
   );
 }
 
-export function NoteRow({ note, folderName, onOpen, onRestore }) {
+export function NoteRow({ note, folderName, onOpen, onRestore, onDelete }) {
   return (
     <div className="note-row">
       {/* The whole card is the target. This sits above the text so a tap anywhere
@@ -36,18 +36,25 @@ export function NoteRow({ note, folderName, onOpen, onRestore }) {
           {note.is_published && <span className="tag tag-live"><IconShare width={11} height={11} />Shared</span>}
         </div>
       </div>
-      {onRestore && (
+      {(onRestore || onDelete) && (
         <div className="rail">
-          <button className="btn btn-ghost btn-sm" type="button" onClick={() => onRestore(note.id)}>
-            <IconRestore width={14} height={14} />Restore
-          </button>
+          {onRestore && (
+            <button className="btn btn-ghost btn-sm" type="button" onClick={() => onRestore(note.id)}>
+              <IconRestore width={14} height={14} />Restore
+            </button>
+          )}
+          {onDelete && (
+            <button className="btn btn-ghost btn-sm btn-ghost-danger" type="button" onClick={() => onDelete(note)}>
+              <IconTrash width={14} height={14} />Delete
+            </button>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-export default function NoteList({ notes, loading, folderNameFor, onOpen, onRestore, empty }) {
+export default function NoteList({ notes, loading, folderNameFor, onOpen, onRestore, onDelete, empty }) {
   if (loading) return <NoteListSkeleton />;
   if (!notes.length) return empty;
 
@@ -64,7 +71,7 @@ export default function NoteList({ notes, loading, folderNameFor, onOpen, onRest
           </div>
           <div className="note-list">
             {pinned.map((note) => (
-              <NoteRow key={note.id} note={note} folderName={folderNameFor?.(note)} onOpen={onOpen} onRestore={onRestore} />
+              <NoteRow key={note.id} note={note} folderName={folderNameFor?.(note)} onOpen={onOpen} onRestore={onRestore} onDelete={onDelete} />
             ))}
           </div>
         </section>
@@ -80,7 +87,7 @@ export default function NoteList({ notes, loading, folderNameFor, onOpen, onRest
           )}
           <div className="note-list">
             {rest.map((note) => (
-              <NoteRow key={note.id} note={note} folderName={folderNameFor?.(note)} onOpen={onOpen} onRestore={onRestore} />
+              <NoteRow key={note.id} note={note} folderName={folderNameFor?.(note)} onOpen={onOpen} onRestore={onRestore} onDelete={onDelete} />
             ))}
           </div>
         </section>

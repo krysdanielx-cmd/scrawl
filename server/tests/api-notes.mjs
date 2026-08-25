@@ -180,8 +180,10 @@ async function main() {
   console.log('\n-- archive and restore');
   const republished = await call(`/api/notes/${idA}/publish`, { token, method: 'POST' });
   const slug2 = republished.payload.note.public_slug;
-  const archived = await call(`/api/notes/${idA}`, { token, method: 'DELETE' });
-  check('DELETE archives instead of deleting', archived.status === 200 && archived.payload.note.is_archived === true, archived.payload);
+  const archived = await call(`/api/notes/${idA}`, {
+    token, method: 'PATCH', body: { is_archived: true },
+  });
+  check('PATCH is_archived archives the note', archived.status === 200 && archived.payload.note.is_archived === true, archived.payload);
   check('archiving also revokes the public link', archived.payload.note.is_published === false && archived.payload.note.public_slug === null);
   check('the revoked link 404s', (await call(`/api/public/notes/${slug2}`)).status === 404);
   check('the row still exists', (await call(`/api/notes/${idA}`, { token })).status === 200);
@@ -195,6 +197,21 @@ async function main() {
 
   const restored = await call(`/api/notes/${idA}`, { token, method: 'PATCH', body: { is_archived: false } });
   check('restore returns the note to the desk', restored.status === 200 && restored.payload.note.is_archived === false);
+
+  console.log('\n-- DELETE really deletes');
+  const doomed = await call('/api/notes', { token, method: 'POST', body: { title: 'zz api doomed note' } });
+  const doomedId = doomed.payload.note.id;
+  createdNotes.add(doomedId);
+  const hardDeleted = await call(`/api/notes/${doomedId}`, { token, method: 'DELETE' });
+  check('DELETE /api/notes returns 200', hardDeleted.status === 200, hardDeleted.payload);
+  check('DELETE reports the id it removed', hardDeleted.payload?.id === doomedId, hardDeleted.payload);
+  check('the deleted note 404s afterwards', (await call(`/api/notes/${doomedId}`, { token })).status === 404);
+  const { data: goneRow } = await supabase.from('notes').select('id').eq('id', doomedId).maybeSingle();
+  check('the row is gone from Postgres, not just hidden', !goneRow, goneRow);
+  if (!goneRow) createdNotes.delete(doomedId);
+  check('deleting an unknown note is a 404', (await call(`/api/notes/${doomedId}`, { token, method: 'DELETE' })).status === 404);
+  // The archived note from the section above must still be intact.
+  check('archiving did NOT delete the earlier note', (await call(`/api/notes/${idA}`, { token })).status === 200);
 
   console.log('\n-- folder delete keeps notes');
   const deleted = await call(`/api/folders/${folderId}`, { token, method: 'DELETE' });

@@ -9,9 +9,36 @@ import NoteList from '../components/NoteList.jsx';
 const NoteEditor = lazy(() => import('../components/NoteEditor.jsx'));
 import SearchOverlay from '../components/SearchOverlay.jsx';
 import FolderModal from '../components/FolderModal.jsx';
+import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import { IconCheck, IconMenu, IconPlus, IconSearch } from '../lib/icons.jsx';
 
 const EMPTY_TOTALS = { all: 0, unfiled: 0, archived: 0 };
+const UUID = '[0-9a-fA-F-]{36}';
+
+/**
+ * An open note is a place you can reload, bookmark and press Back out of.
+ * Without this the phone's back gesture closes the whole installed app and an
+ * iOS background-reload drops you at the desk mid-sentence.
+ */
+function pathFor(view, noteId) {
+  if (noteId) return `/n/${noteId}`;
+  if (view.type === 'all') return '/notes';
+  if (view.type === 'unfiled') return '/unfiled';
+  if (view.type === 'archive') return '/archive';
+  if (view.type === 'folder') return `/f/${view.folderId}`;
+  return '/';
+}
+
+function parsePath(pathname) {
+  const note = pathname.match(new RegExp(`^/n/(${UUID})/?$`));
+  if (note) return { view: null, noteId: note[1] };
+  const folder = pathname.match(new RegExp(`^/f/(${UUID})/?$`));
+  if (folder) return { view: { type: 'folder', folderId: folder[1] }, noteId: null };
+  if (pathname === '/notes') return { view: { type: 'all' }, noteId: null };
+  if (pathname === '/unfiled') return { view: { type: 'unfiled' }, noteId: null };
+  if (pathname === '/archive') return { view: { type: 'archive' }, noteId: null };
+  return { view: { type: 'dashboard' }, noteId: null };
+}
 
 function listParams(view) {
   if (view.type === 'archive') return '?archived=true';
@@ -23,14 +50,18 @@ function listParams(view) {
 export default function Workspace({ session, onSignOut }) {
   const [folders, setFolders] = useState(session.folders || []);
   const [totals, setTotals] = useState(EMPTY_TOTALS);
-  const [view, setView] = useState({ type: 'dashboard' });
+  const bootPath = useRef(typeof window === 'undefined' ? '/' : window.location.pathname);
+  const [view, setView] = useState(() => parsePath(bootPath.current).view || { type: 'dashboard' });
   const [notes, setNotes] = useState([]);
   const [recent, setRecent] = useState([]);
   const [listLoading, setListLoading] = useState(true);
   const [openNote, setOpenNote] = useState(null);
   const [noteLoading, setNoteLoading] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [folderModal, setFolderModal] = useState(false);
+  const [folderModal, setFolderModal] = useState({ open: false, folder: null });
+  const [confirm, setConfirm] = useState(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
+  const [booted, setBooted] = useState(false);
   const [drawer, setDrawer] = useState(false);
   const [toast, setToast] = useState('');
 
@@ -86,6 +117,39 @@ export default function Workspace({ session, onSignOut }) {
     }
   }, [showToast]);
 
+  // Open whatever the URL pointed at on a cold load, then start syncing.
+  useEffect(() => {
+    const { noteId } = parsePath(bootPath.current);
+    if (!noteId) { setBooted(true); return; }
+    openNoteById(noteId).finally(() => setBooted(true));
+  }, [openNoteById]);
+
+  const firstSync = useRef(true);
+  useEffect(() => {
+    if (!booted) return;
+    const next = pathFor(view, openNote?.id);
+    if (window.location.pathname === next) { firstSync.current = false; return; }
+    // The first correction just tidies a stale or unknown URL, so it must not
+    // add a history entry the user then has to press Back through.
+    if (firstSync.current) window.history.replaceState({}, '', next);
+    else window.history.pushState({}, '', next);
+    firstSync.current = false;
+  }, [booted, view, openNote]);
+
+  useEffect(() => {
+    function onPopState() {
+      const target = parsePath(window.location.pathname);
+      if (target.noteId) {
+        if (target.noteId !== openNote?.id) openNoteById(target.noteId);
+        return;
+      }
+      setOpenNote(null);
+      if (target.view) setView(target.view);
+    }
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [openNote, openNoteById]);
+
   const createNote = useCallback(async (folderId) => {
     try {
       const { note } = await api('/notes', {
@@ -116,7 +180,7 @@ export default function Workspace({ session, onSignOut }) {
       }
       if (event.key === 'Escape') {
         setSearchOpen(false);
-        setFolderModal(false);
+        setFolderModal({ open: false, folder: null });
         setDrawer(false);
       }
     }
@@ -154,6 +218,66 @@ export default function Workspace({ session, onSignOut }) {
     }
   }
 
+  // --- destructive actions. Every one of these goes through ConfirmDialog. ---
+  function askDeleteNote(note) {
+    setConfirm({
+      kind: 'note',
+      id: note.id,
+      title: 'Delete this note for good?',
+      body: `"${note.title?.trim() || 'Untitled'}" and anything attached to it will be erased from the database. This cannot be undone, and it is not the same as archiving.`,
+      confirmLabel: 'Delete for good',
+    });
+  }
+
+  function askDeleteFolder(folder) {
+    const count = folder.note_count || 0;
+    setConfirm({
+      kind: 'folder',
+      id: folder.id,
+      title: `Delete the folder "${folder.name}"?`,
+      body: count
+        ? `The folder is erased. Its ${count} ${count === 1 ? 'note' : 'notes'} are kept and become Unfiled, so no writing is lost. This cannot be undone.`
+        : 'The folder is erased. This cannot be undone.',
+      confirmLabel: 'Delete folder',
+    });
+  }
+
+  async function runConfirmed() {
+    if (!confirm) return;
+    setConfirmBusy(true);
+    try {
+      if (confirm.kind === 'note') {
+        await api(`/notes/${confirm.id}`, { method: 'DELETE' });
+        setNotes((rows) => rows.filter((row) => row.id !== confirm.id));
+        setRecent((rows) => rows.filter((row) => row.id !== confirm.id));
+        if (openNote?.id === confirm.id) setOpenNote(null);
+        showToast('Note deleted');
+      } else {
+        await api(`/folders/${confirm.id}`, { method: 'DELETE' });
+        setFolders((rows) => rows.filter((row) => row.id !== confirm.id));
+        if (view.type === 'folder' && view.folderId === confirm.id) setView({ type: 'dashboard' });
+        showToast('Folder deleted');
+      }
+      setConfirm(null);
+      await refreshAll();
+    } catch (error) {
+      showToast(error.message || 'That did not work.');
+    } finally {
+      setConfirmBusy(false);
+    }
+  }
+
+  function handleFolderSaved(folder, { renamed } = {}) {
+    setFolderModal({ open: false, folder: null });
+    setFolders((rows) => (renamed
+      ? rows.map((row) => (row.id === folder.id ? { ...row, ...folder } : row))
+      : [...rows, folder]));
+    showToast(renamed ? `Renamed to ${folder.name}` : `Created ${folder.name}`);
+    loadFolders().catch(() => {});
+    // A brand new folder is somewhere you meant to go; a rename is not.
+    if (!renamed) selectView({ type: 'folder', folderId: folder.id });
+  }
+
   const folderName = (note) => folders.find((folder) => folder.id === note.folder_id)?.name || null;
   const currentFolder = view.type === 'folder' ? folders.find((folder) => folder.id === view.folderId) : null;
 
@@ -169,7 +293,7 @@ export default function Workspace({ session, onSignOut }) {
       <h3>{view.type === 'archive' ? 'Archive is empty' : 'No notes here yet'}</h3>
       <p>
         {view.type === 'archive'
-          ? 'Archived notes land here instead of being deleted, so nothing is ever really gone.'
+          ? 'Archived notes rest here. Restore one, or delete it for good.'
           : 'Start one and it saves itself as you type.'}
       </p>
       {view.type !== 'archive' && (
@@ -183,6 +307,8 @@ export default function Workspace({ session, onSignOut }) {
 
   return (
     <div className="shell">
+      {/* Rename and delete leave the drawer open: the dialog overlays it, so
+          cancelling puts you back exactly where you were. */}
       <Sidebar
         open={drawer}
         folders={folders}
@@ -190,7 +316,9 @@ export default function Workspace({ session, onSignOut }) {
         view={view}
         email={session.user?.email || ''}
         onSelect={selectView}
-        onNewFolder={() => { setDrawer(false); setFolderModal(true); }}
+        onNewFolder={() => { setDrawer(false); setFolderModal({ open: true, folder: null }); }}
+        onRenameFolder={(folder) => setFolderModal({ open: true, folder })}
+        onDeleteFolder={(folder) => askDeleteFolder(folder)}
         onSignOut={onSignOut}
       />
       {drawer && <div className="scrim" onClick={() => setDrawer(false)} aria-hidden="true" />}
@@ -212,6 +340,7 @@ export default function Workspace({ session, onSignOut }) {
             folders={folders}
             onMetaChange={handleMetaChange}
             onArchived={handleArchived}
+            onDelete={askDeleteNote}
             onBack={() => { setOpenNote(null); refreshAll(); }}
             onToast={showToast}
           />
@@ -226,7 +355,7 @@ export default function Workspace({ session, onSignOut }) {
             loading={listLoading}
             onOpenSearch={() => setSearchOpen(true)}
             onQuickCapture={() => createNote(null)}
-            onNewFolder={() => setFolderModal(true)}
+            onNewFolder={() => setFolderModal({ open: true, folder: null })}
             onOpenFolder={(folderId) => selectView({ type: 'folder', folderId })}
             onOpenNote={openNoteById}
           />
@@ -258,6 +387,7 @@ export default function Workspace({ session, onSignOut }) {
                 folderNameFor={view.type === 'folder' ? undefined : folderName}
                 onOpen={openNoteById}
                 onRestore={view.type === 'archive' ? restoreNote : undefined}
+                onDelete={askDeleteNote}
                 empty={emptyState}
               />
             </div>
@@ -267,14 +397,20 @@ export default function Workspace({ session, onSignOut }) {
 
       <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} onOpenNote={openNoteById} />
       <FolderModal
-        open={folderModal}
-        onClose={() => setFolderModal(false)}
-        onCreated={(folder) => {
-          setFolderModal(false);
-          showToast(`Created ${folder.name}`);
-          loadFolders().catch(() => {});
-          selectView({ type: 'folder', folderId: folder.id });
-        }}
+        key={folderModal.folder?.id || 'new-folder'}
+        open={folderModal.open}
+        folder={folderModal.folder}
+        onClose={() => setFolderModal({ open: false, folder: null })}
+        onSaved={handleFolderSaved}
+      />
+      <ConfirmDialog
+        open={Boolean(confirm)}
+        title={confirm?.title || ''}
+        body={confirm?.body || ''}
+        confirmLabel={confirm?.confirmLabel || 'Delete'}
+        busy={confirmBusy}
+        onConfirm={runConfirmed}
+        onCancel={() => { if (!confirmBusy) setConfirm(null); }}
       />
 
       {toast && <div className="toast" role="status"><IconCheck width={14} height={14} />{toast}</div>}

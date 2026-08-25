@@ -34,6 +34,7 @@ export const IconCopy = make(<><rect x="9" y="9" width="11" height="11" rx="2" /
 export const IconClose = make(<><path d="M6 6l12 12" /><path d="M18 6 6 18" /></>);
 export const IconMenu = make(<><path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" /></>);
 export const IconBack = make(<><path d="M19 12H5" /><path d="m11 6-6 6 6 6" /></>);
+export const IconPencil = make(<><path d="M4 20h4l10-10a2.1 2.1 0 0 0-3-3L5 17v3Z" /><path d="M14.5 6.5l3 3" /></>);
 export const IconRestore = make(<><path d="M4.5 10.5A7.5 7.5 0 1 1 5 15" /><path d="M4 5.5v5h5" /></>);
 export const IconBullets = make(<><path d="M9 6.5h11" /><path d="M9 12h11" /><path d="M9 17.5h11" /><circle cx="4.8" cy="6.5" r="1.2" fill="currentColor" stroke="none" /><circle cx="4.8" cy="12" r="1.2" fill="currentColor" stroke="none" /><circle cx="4.8" cy="17.5" r="1.2" fill="currentColor" stroke="none" /></>);
 export const IconNumbers = make(<><path d="M10 6.5h10" /><path d="M10 12h10" /><path d="M10 17.5h10" /><path d="M4 4.8h1.4v3.6" /><path d="M3.6 8.4h2.4" /><path d="M3.6 10.9a1.3 1.3 0 1 1 2.2.9L3.6 14h2.4" /><path d="M3.7 16.4h2.2l-1.3 1.5a1.2 1.2 0 1 1-.9 2" /></>);

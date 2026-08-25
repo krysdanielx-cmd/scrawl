@@ -5,14 +5,14 @@ import { buildExtensions, safeContent } from '../lib/editor.js';
 import { fullDate } from '../lib/format.js';
 import {
   IconArchive, IconBack, IconBullets, IconChecklist, IconCode, IconCopy,
-  IconNumbers, IconPin, IconQuote, IconRedo, IconShare, IconUndo,
+  IconNumbers, IconPin, IconQuote, IconRedo, IconShare, IconTrash, IconUndo,
 } from '../lib/icons.jsx';
 
 const AUTOSAVE_MS = 500;
 
 const SAVE_LABEL = { idle: 'All changes saved', saving: 'Saving', saved: 'Saved', error: 'Not saved' };
 
-export default function NoteEditor({ note, folders, onMetaChange, onArchived, onBack, onToast }) {
+export default function NoteEditor({ note, folders, onMetaChange, onArchived, onDelete, onBack, onToast }) {
   const [title, setTitle] = useState(note.title || '');
   const [meta, setMeta] = useState(note);
   const [saveState, setSaveState] = useState('idle');
@@ -119,8 +119,11 @@ export default function NoteEditor({ note, folders, onMetaChange, onArchived, on
     }
   });
 
+  // Archive is a state change, NOT a delete. DELETE erases the row for good.
   const archive = () => act(async () => {
-    await api(`/notes/${note.id}`, { method: 'DELETE' });
+    await api(`/notes/${note.id}`, {
+      method: 'PATCH', body: JSON.stringify({ is_archived: true }),
+    });
     onArchived?.(note.id);
   });
 
@@ -189,6 +192,8 @@ export default function NoteEditor({ note, folders, onMetaChange, onArchived, on
             <button className="icon-btn" type="button" onClick={archive} disabled={busy} aria-label="Archive note" title="Archive"><IconArchive /></button>
           </>
         )}
+        <button className="icon-btn icon-btn-danger" type="button" onClick={() => onDelete(meta)} disabled={busy}
+          aria-label="Delete note" title="Delete for good"><IconTrash /></button>
       </div>
 
       <div className="toolbar" role="toolbar" aria-label="Formatting">

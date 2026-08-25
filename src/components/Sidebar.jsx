@@ -1,8 +1,8 @@
-import { IconArchive, IconFolder, IconPlus, IconSignOut, IconStack } from '../lib/icons.jsx';
+import { IconArchive, IconFolder, IconPencil, IconPlus, IconSignOut, IconStack, IconTrash } from '../lib/icons.jsx';
 
 export default function Sidebar({
   open, folders, totals, view, email,
-  onSelect, onNewFolder, onSignOut,
+  onSelect, onNewFolder, onRenameFolder, onDeleteFolder, onSignOut,
 }) {
   const isOn = (type, folderId) =>
     view.type === type && (type !== 'folder' || view.folderId === folderId);
@@ -30,18 +30,41 @@ export default function Sidebar({
           <button type="button" onClick={onNewFolder} aria-label="New folder" title="New folder"><IconPlus width={14} height={14} /></button>
         </p>
 
+        {/* A nav item cannot contain the rename/delete buttons (nested buttons are
+            invalid), so the row is a wrapper with the controls as siblings. */}
         {folders.map((folder) => (
-          <button
-            key={folder.id}
-            className="nav-item"
-            type="button"
-            data-on={isOn('folder', folder.id)}
-            onClick={() => onSelect({ type: 'folder', folderId: folder.id })}
-          >
-            <IconFolder />
-            <span className="nav-text">{folder.name}</span>
-            <span className="nav-count">{folder.note_count}</span>
-          </button>
+          <div className="nav-row" key={folder.id}>
+            <button
+              className="nav-item"
+              type="button"
+              data-on={isOn('folder', folder.id)}
+              onClick={() => onSelect({ type: 'folder', folderId: folder.id })}
+            >
+              <IconFolder />
+              <span className="nav-text">{folder.name}</span>
+              <span className="nav-count">{folder.note_count}</span>
+            </button>
+            <span className="nav-tools">
+              <button
+                type="button"
+                className="nav-tool"
+                onClick={() => onRenameFolder(folder)}
+                aria-label={`Rename ${folder.name}`}
+                title="Rename"
+              >
+                <IconPencil width={14} height={14} />
+              </button>
+              <button
+                type="button"
+                className="nav-tool nav-tool-danger"
+                onClick={() => onDeleteFolder(folder)}
+                aria-label={`Delete ${folder.name}`}
+                title="Delete folder"
+              >
+                <IconTrash width={14} height={14} />
+              </button>
+            </span>
+          </div>
         ))}
 
         {totals.unfiled > 0 && (
