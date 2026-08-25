@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { api } from '../api.js';
-import { buildExtensions, safeContent } from '../lib/editor.js';
+import { buildExtensions, safeContent, transformPastedHTML } from '../lib/editor.js';
 import { fullDate } from '../lib/format.js';
 // import TableMenu from './TableMenu.jsx';
 import {
@@ -56,12 +56,11 @@ export default function NoteEditor({ note, folders, onMetaChange, onArchived, on
   const editor = useEditor({
     extensions: buildExtensions({ placeholder: 'Start writing.' }),
     content: safeContent(note.content),
-    editorProps: { attributes: { class: 'prose', spellcheck: 'true' } },
-    onUpdate: ({ editor: instance }) => {
-      const json = instance.getJSON();
-      console.log('[scrawl] saving content:', JSON.stringify(json).slice(0, 200));
-      queue({ content: json });
+    editorProps: {
+      attributes: { class: 'prose', spellcheck: 'true' },
+      transformPastedHTML,
     },
+    onUpdate: ({ editor: instance }) => queue({ content: instance.getJSON() }),
   }, [note.id]);
 
   // A pending debounce must never outlive the editor: flush on unmount and when
