@@ -17,6 +17,7 @@ export default function NoteEditor({ note, folders, onMetaChange, onArchived, on
   const [meta, setMeta] = useState(note);
   const [saveState, setSaveState] = useState('idle');
   const [busy, setBusy] = useState(false);
+  const [showPublishBar, setShowPublishBar] = useState(false);
 
   const titleRef = useRef(null);
   const pending = useRef({});
@@ -115,6 +116,7 @@ export default function NoteEditor({ note, folders, onMetaChange, onArchived, on
       const { note: updated } = await api(`/notes/${note.id}/publish`, { method: 'POST' });
       setMeta(updated);
       metaChangeRef.current?.(updated);
+      setShowPublishBar(true);
       onToast?.('Public link created');
     }
   });
@@ -244,12 +246,13 @@ export default function NoteEditor({ note, folders, onMetaChange, onArchived, on
             {meta.is_archived ? ' - archived' : ''}
           </p>
 
-          {meta.is_published && publicUrl && (
+          {showPublishBar && publicUrl && (
             <div className="publish-bar">
               <IconShare width={15} height={15} style={{ color: 'var(--cobalt)' }} />
               <code>{publicUrl}</code>
-              <button className="btn btn-ghost btn-sm" type="button" onClick={copyLink}><IconCopy width={14} height={14} />Copy</button>
+              <button className="btn btn-ghost btn-sm" type="button" onClick={() => { copyLink(); setShowPublishBar(false); }}><IconCopy width={14} height={14} />Copy</button>
               <a className="btn btn-ghost btn-sm" href={publicUrl} target="_blank" rel="noreferrer">Open</a>
+              <button className="btn btn-ghost btn-sm" type="button" onClick={() => setShowPublishBar(false)}>×</button>
             </div>
           )}
 
