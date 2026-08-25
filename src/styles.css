@@ -100,7 +100,8 @@
   color-scheme: dark;
 }
 [data-theme="dark"] .editor-bar,
-[data-theme="dark"] .toolbar { background: rgba(26, 26, 26, .92); }
+[data-theme="dark"] .toolbar,
+[data-theme="dark"] .topbar { background: rgba(26, 26, 26, .92); }
 
 /* Ambient mode - warm, low contrast for night reading */
 [data-theme="ambient"] {
@@ -130,7 +131,8 @@
   color-scheme: dark;
 }
 [data-theme="ambient"] .editor-bar,
-[data-theme="ambient"] .toolbar { background: rgba(31, 28, 24, .92); }
+[data-theme="ambient"] .toolbar,
+[data-theme="ambient"] .topbar { background: rgba(31, 28, 24, .92); }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 a, button, [role='button'], input, select, textarea, label, summary { touch-action: manipulation; }
