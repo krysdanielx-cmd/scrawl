@@ -44,3 +44,4 @@ export const IconCode = make(<><path d="m8.5 8.5-4 3.5 4 3.5" /><path d="m15.5 8
 export const IconUndo = make(<><path d="M4 9.5h9.5a5 5 0 0 1 0 10H8" /><path d="M7.5 5.5 4 9.5l3.5 4" /></>);
 export const IconRedo = make(<><path d="M20 9.5h-9.5a5 5 0 0 0 0 10H16" /><path d="m16.5 5.5 3.5 4-3.5 4" /></>);
 export const IconSignOut = make(<><path d="M14 7V5.5A1.5 1.5 0 0 0 12.5 4h-6A1.5 1.5 0 0 0 5 5.5v13A1.5 1.5 0 0 0 6.5 20h6a1.5 1.5 0 0 0 1.5-1.5V17" /><path d="M10 12h10" /><path d="m17 8.5 3.5 3.5L17 15.5" /></>);
+export const IconStrike = make(<><path d="M5 12h14" /><path d="M16.5 6.8c-1.2-1.2-3-1.6-4.8-1.3-2.4.4-4.2 2-4.2 3.8 0 1.2.8 2.2 2 2.7" /><path d="M7.5 17.2c1.2 1.2 3 1.6 4.8 1.3 2.4-.4 4.2-2 4.2-3.8 0-.8-.4-1.5-1-2" /></>);
