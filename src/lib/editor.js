@@ -5,6 +5,7 @@ import TaskItem from '@tiptap/extension-task-item';
 import { Table, TableRow, TableHeader, TableCell } from '@tiptap/extension-table';
 import Link from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
+import Image from '@tiptap/extension-image';
 
 export const EMPTY_DOC = { type: 'doc', content: [{ type: 'paragraph' }] };
 
@@ -49,6 +50,11 @@ export function buildExtensions({ placeholder } = {}) {
       linkOnPaste: true,
     }),
     Underline,
+    Image.configure({
+      inline: false,
+      allowBase64: true,
+      HTMLAttributes: { class: 'scrawl-image' },
+    }),
     ...(placeholder ? [Placeholder.configure({ placeholder })] : []),
   ];
 }

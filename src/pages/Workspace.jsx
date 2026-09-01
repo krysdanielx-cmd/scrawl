@@ -55,7 +55,8 @@ export default function Workspace({ session, onSignOut }) {
   const [notes, setNotes] = useState([]);
   const [recent, setRecent] = useState([]);
   const [listLoading, setListLoading] = useState(true);
-  const [openNote, setOpenNote] = useState(null);
+  const [openNotes, setOpenNotes] = useState([]);
+  const [activeNoteId, setActiveNoteId] = useState(null);
   const [noteLoading, setNoteLoading] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [folderModal, setFolderModal] = useState({ open: false, folder: null });
@@ -106,16 +107,38 @@ export default function Workspace({ session, onSignOut }) {
   const openNoteById = useCallback(async (id) => {
     setSearchOpen(false);
     setDrawer(false);
+    // If note is already open, just switch to it
+    const existing = openNotes.find(n => n.id === id);
+    if (existing) {
+      setActiveNoteId(id);
+      return;
+    }
     setNoteLoading(true);
     try {
       const { note } = await api(`/notes/${id}`);
-      setOpenNote(note);
+      setOpenNotes(prev => [...prev, note]);
+      setActiveNoteId(note.id);
     } catch (error) {
       showToast(error.message || 'Could not open that note.');
     } finally {
       setNoteLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, openNotes]);
+
+  const closeNote = useCallback((id) => {
+    setOpenNotes(prev => {
+      const remaining = prev.filter(n => n.id !== id);
+      // If closing the active note, switch to another or clear
+      if (id === activeNoteId) {
+        const closedIndex = prev.findIndex(n => n.id === id);
+        const nextNote = remaining[closedIndex] || remaining[closedIndex - 1] || null;
+        setActiveNoteId(nextNote?.id || null);
+      }
+      return remaining;
+    });
+  }, [activeNoteId]);
+
+  const activeNote = openNotes.find(n => n.id === activeNoteId) || null;
 
   // Open whatever the URL pointed at on a cold load, then start syncing.
   useEffect(() => {
@@ -127,28 +150,28 @@ export default function Workspace({ session, onSignOut }) {
   const firstSync = useRef(true);
   useEffect(() => {
     if (!booted) return;
-    const next = pathFor(view, openNote?.id);
+    const next = pathFor(view, activeNote?.id);
     if (window.location.pathname === next) { firstSync.current = false; return; }
     // The first correction just tidies a stale or unknown URL, so it must not
     // add a history entry the user then has to press Back through.
     if (firstSync.current) window.history.replaceState({}, '', next);
     else window.history.pushState({}, '', next);
     firstSync.current = false;
-  }, [booted, view, openNote]);
+  }, [booted, view, activeNote]);
 
   useEffect(() => {
     function onPopState() {
       const target = parsePath(window.location.pathname);
       if (target.noteId) {
-        if (target.noteId !== openNote?.id) openNoteById(target.noteId);
+        if (target.noteId !== activeNoteId) openNoteById(target.noteId);
         return;
       }
-      setOpenNote(null);
+      setActiveNoteId(null);
       if (target.view) setView(target.view);
     }
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
-  }, [openNote, openNoteById]);
+  }, [activeNoteId, openNoteById]);
 
   const createNote = useCallback(async (folderId) => {
     try {
@@ -156,7 +179,8 @@ export default function Workspace({ session, onSignOut }) {
         method: 'POST',
         body: JSON.stringify({ folder_id: folderId ?? null, title: '' }),
       });
-      setOpenNote(note);
+      setOpenNotes(prev => [...prev, note]);
+      setActiveNoteId(note.id);
       setDrawer(false);
     } catch (error) {
       showToast(error.message || 'Could not create a note.');
@@ -189,7 +213,7 @@ export default function Workspace({ session, onSignOut }) {
   }, [createNote, view]);
 
   function selectView(next) {
-    setOpenNote(null);
+    setActiveNoteId(null);
     setDrawer(false);
     setView(next);
   }
@@ -197,11 +221,12 @@ export default function Workspace({ session, onSignOut }) {
   function handleMetaChange(updated, options = {}) {
     setNotes((rows) => rows.map((row) => (row.id === updated.id ? { ...row, ...updated } : row)));
     setRecent((rows) => rows.map((row) => (row.id === updated.id ? { ...row, ...updated } : row)));
+    setOpenNotes((prev) => prev.map((n) => (n.id === updated.id ? { ...n, ...updated } : n)));
     if (options.moved) refreshAll();
   }
 
   async function handleArchived(id) {
-    setOpenNote(null);
+    closeNote(id);
     setNotes((rows) => rows.filter((row) => row.id !== id));
     setRecent((rows) => rows.filter((row) => row.id !== id));
     showToast('Moved to archive');
@@ -250,7 +275,7 @@ export default function Workspace({ session, onSignOut }) {
         await api(`/notes/${confirm.id}`, { method: 'DELETE' });
         setNotes((rows) => rows.filter((row) => row.id !== confirm.id));
         setRecent((rows) => rows.filter((row) => row.id !== confirm.id));
-        if (openNote?.id === confirm.id) setOpenNote(null);
+        closeNote(confirm.id);
         showToast('Note deleted');
       } else {
         await api(`/folders/${confirm.id}`, { method: 'DELETE' });
@@ -334,19 +359,43 @@ export default function Workspace({ session, onSignOut }) {
           <button className="icon-btn" type="button" onClick={() => createNote(view.type === 'folder' ? view.folderId : null)} aria-label="New note"><IconPlus /></button>
         </div>
 
-        {openNote ? (
-          <Suspense fallback={<div className="pane pane-wide"><div className="skel" style={{ width: '46%', height: 34 }} /></div>}>
-          <NoteEditor
-            key={openNote.id}
-            note={openNote}
-            folders={folders}
-            onMetaChange={handleMetaChange}
-            onArchived={handleArchived}
-            onDelete={askDeleteNote}
-            onBack={() => { setOpenNote(null); refreshAll(); }}
-            onToast={showToast}
-          />
-          </Suspense>
+        {activeNote ? (
+          <>
+            {openNotes.length > 1 && (
+              <div className="tab-bar">
+                {openNotes.map(n => (
+                  <div
+                    key={n.id}
+                    className={`tab ${n.id === activeNoteId ? 'tab-active' : ''}`}
+                    onClick={() => setActiveNoteId(n.id)}
+                  >
+                    <span className="tab-title">{n.title?.trim() || 'Untitled'}</span>
+                    <button
+                      type="button"
+                      className="tab-close"
+                      onClick={(e) => { e.stopPropagation(); closeNote(n.id); }}
+                      aria-label="Close tab"
+                    >×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <Suspense fallback={<div className="pane pane-wide"><div className="skel" style={{ width: '46%', height: 34 }} /></div>}>
+              {openNotes.map(n => (
+                <div key={n.id} style={{ display: n.id === activeNoteId ? 'contents' : 'none' }}>
+                  <NoteEditor
+                    note={n}
+                    folders={folders}
+                    onMetaChange={handleMetaChange}
+                    onArchived={handleArchived}
+                    onDelete={askDeleteNote}
+                    onBack={() => { closeNote(n.id); refreshAll(); }}
+                    onToast={showToast}
+                  />
+                </div>
+              ))}
+            </Suspense>
+          </>
         ) : noteLoading ? (
           <div className="pane pane-wide"><div className="skel" style={{ width: '46%', height: 34 }} /></div>
         ) : view.type === 'dashboard' ? (
