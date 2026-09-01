@@ -60,8 +60,54 @@ export default function NoteEditor({ note, folders, onMetaChange, onArchived, on
       attributes: { class: 'prose', spellcheck: 'true' },
       transformPastedHTML,
       handlePaste: (view, event) => {
-        console.log('[scrawl] paste event, types:', event.clipboardData?.types);
-        return false; // let default handling continue
+        // Handle pasted images
+        const items = event.clipboardData?.items;
+        if (items) {
+          for (const item of items) {
+            if (item.type.startsWith('image/')) {
+              event.preventDefault();
+              const file = item.getAsFile();
+              if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                  const { schema } = view.state;
+                  const node = schema.nodes.image?.create({ src: e.target.result });
+                  if (node) {
+                    const tr = view.state.tr.replaceSelectionWith(node);
+                    view.dispatch(tr);
+                  }
+                };
+                reader.readAsDataURL(file);
+              }
+              return true;
+            }
+          }
+        }
+        return false;
+      },
+      handleDrop: (view, event, slice, moved) => {
+        if (moved) return false; // internal drag, let default handle
+        const files = event.dataTransfer?.files;
+        if (files?.length) {
+          for (const file of files) {
+            if (file.type.startsWith('image/')) {
+              event.preventDefault();
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                const { schema } = view.state;
+                const node = schema.nodes.image?.create({ src: e.target.result });
+                if (node) {
+                  const pos = view.posAtCoords({ left: event.clientX, top: event.clientY });
+                  const tr = view.state.tr.insert(pos?.pos || view.state.selection.from, node);
+                  view.dispatch(tr);
+                }
+              };
+              reader.readAsDataURL(file);
+              return true;
+            }
+          }
+        }
+        return false;
       },
     },
     onUpdate: ({ editor: instance }) => queue({ content: instance.getJSON() }),
