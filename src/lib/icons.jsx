@@ -51,3 +51,4 @@ export const IconHighlight = make(<><path d="M12 20h9" /><path d="M16.5 3.5a2.1 
 export const IconCallout = make(<><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M7 9h10" /><path d="M7 13h6" /></>);
 export const IconUnderline = make(<><path d="M6 4v6a6 6 0 0 0 12 0V4" /><path d="M4 20h16" /></>);
 export const IconColumns = make(<><rect x="3" y="4" width="7" height="16" rx="1" /><rect x="14" y="4" width="7" height="16" rx="1" /></>);
+export const IconHtmlPreview = make(<><path d="M4 4h16v12H4z" /><path d="M8 20h8" /><path d="M12 16v4" /><path d="m7 8 2 2-2 2" /><path d="M13 12h3" /></>);

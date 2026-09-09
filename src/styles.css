@@ -953,6 +953,110 @@ button:disabled { cursor: not-allowed; }
 
 /* ---------- public reader ---------- */
 
+/* ============================================================
+   html preview modal
+   ============================================================ */
+
+.html-preview-modal {
+  width: min(95vw, 900px);
+  max-height: 85vh;
+  background: var(--paper);
+  border-radius: 12px;
+  box-shadow: var(--shadow-float);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.html-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.html-preview-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.html-preview-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.html-preview-input,
+.html-preview-output {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.html-preview-input {
+  border-right: 1px solid var(--line);
+}
+
+.html-preview-input label,
+.html-preview-output label {
+  font-size: .75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--faint);
+  margin-bottom: 10px;
+}
+
+.html-preview-input textarea {
+  flex: 1;
+  min-height: 300px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+  font-size: .875rem;
+  line-height: 1.5;
+  resize: none;
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.html-preview-input textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.html-preview-render {
+  flex: 1;
+  min-height: 300px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: auto;
+  background: #fff;
+}
+
+@media (max-width: 640px) {
+  .html-preview-body {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
+  }
+  .html-preview-input {
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
+  .html-preview-input textarea,
+  .html-preview-render {
+    min-height: 200px;
+  }
+}
+
 .reader { min-height: 100dvh; background: var(--paper); }
 .reader-bar {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;

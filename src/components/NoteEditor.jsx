@@ -7,8 +7,9 @@ import { fullDate } from '../lib/format.js';
 import {
   IconArchive, IconBack, IconBullets, IconChecklist, IconCode, IconCopy,
   IconNumbers, IconPin, IconQuote, IconRedo, IconShare, IconStrike, IconTable, IconTrash, IconUndo,
-  IconLink, IconUnderline,
+  IconLink, IconUnderline, IconHtmlPreview,
 } from '../lib/icons.jsx';
+import HtmlPreviewModal from './HtmlPreviewModal.jsx';
 
 const AUTOSAVE_MS = 500;
 
@@ -20,6 +21,7 @@ export default function NoteEditor({ note, folders, onMetaChange, onArchived, on
   const [saveState, setSaveState] = useState('idle');
   const [busy, setBusy] = useState(false);
   const [showPublishBar, setShowPublishBar] = useState(false);
+  const [showHtmlPreview, setShowHtmlPreview] = useState(false);
 
   const titleRef = useRef(null);
   const pending = useRef({});
@@ -272,6 +274,7 @@ export default function NoteEditor({ note, folders, onMetaChange, onArchived, on
 
         <button className="tool" type="button" onMouseDown={keepFocus} data-on={on('codeBlock')} onClick={run((c) => c.toggleCodeBlock())} aria-label="Code block" title="Code block"><IconCode /></button>
         <button className="tool" type="button" onMouseDown={keepFocus} onClick={run((c) => c.insertTable({ rows: 3, cols: 3, withHeaderRow: true }))} aria-label="Insert table" title="Insert table"><IconTable /></button>
+        <button className="tool" type="button" onMouseDown={keepFocus} onClick={() => setShowHtmlPreview(true)} aria-label="HTML Preview" title="HTML Preview"><IconHtmlPreview /></button>
         <span className="divider" />
         <button className="tool" type="button" onMouseDown={keepFocus} onClick={run((c) => c.undo())} disabled={!can('undo')} aria-label="Undo" title="Undo"><IconUndo /></button>
         <button className="tool" type="button" onMouseDown={keepFocus} onClick={run((c) => c.redo())} disabled={!can('redo')} aria-label="Redo" title="Redo"><IconRedo /></button>
@@ -320,6 +323,8 @@ export default function NoteEditor({ note, folders, onMetaChange, onArchived, on
           <EditorContent editor={editor} />
         </div>
       </div>
+
+      <HtmlPreviewModal open={showHtmlPreview} onClose={() => setShowHtmlPreview(false)} />
     </div>
   );
 }
